@@ -1,0 +1,57 @@
+﻿@{
+    Layout = "";
+}
+@model Nop.Plugin.Misc.Retargeting.Models.ConfigurationModel
+@using System.Web.Mvc.Html
+@using Nop.Web.Framework;
+
+@Html.Action("StoreScopeConfiguration", "Setting", new { area = "Admin" })
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    <div class="panel-group">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.Key_OverrideForStore, model => model.Key, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.Key)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.Key)
+                        @Html.ValidationMessageFor(model => model.Key)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.AddToCartButtonIdPrefix_OverrideForStore, model => model.AddToCartButtonIdPrefix, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.AddToCartButtonIdPrefix)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.AddToCartButtonIdPrefix)
+                        @Html.ValidationMessageFor(model => model.AddToCartButtonIdPrefix)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.PriceLabelClassPrefix_OverrideForStore, model => model.PriceLabelClassPrefix, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.PriceLabelClassPrefix)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.PriceLabelClassPrefix)
+                        @Html.ValidationMessageFor(model => model.PriceLabelClassPrefix)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        &nbsp;
+                    </div>
+                    <div class="col-md-9">
+                        <input type="submit" name="save" class="btn bg-blue" value="@T("Admin.Common.Save")" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

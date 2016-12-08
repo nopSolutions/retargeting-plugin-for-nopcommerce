@@ -1,0 +1,188 @@
+﻿@{
+    Layout = "";
+}
+@model Nop.Plugin.Widgets.Retargeting.Models.ConfigurationModel
+@using System.Web.Mvc.Html
+@using Nop.Web.Framework;
+
+@Html.Action("StoreScopeConfiguration", "Setting", new { area = "Admin" })
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+
+    <script>
+        $(document).ready(function() {
+            bindBootstrapTabSelectEvent("retargeting-configure");
+        });
+    </script>
+
+    <div id="retargeting-configure" class="nav-tabs-custom">
+        <ul class="nav nav-tabs">
+            @Html.RenderBootstrapTabHeader("tab-configuration", @T("Plugins.Widgets.Retargeting.Configuration"), true)
+            @Html.RenderBootstrapTabHeader("tab-preconfigure", @T("Plugins.Widgets.Retargeting.PreconfigureSystem"))
+        </ul>
+        <div class="tab-content">
+            @Html.RenderBootstrapTabContent("tab-configuration", @Configuration(), true)
+            @Html.RenderBootstrapTabContent("tab-preconfigure", @PreconfigureSystem())
+        </div>
+    </div>
+
+    @*save selected tab name*@
+    <input type="hidden" id="selected-tab-name" name="selected-tab-name" value="@(Html.GetSelectedTabName())">
+}
+@helper Configuration()
+{
+
+    <div class="panel-group">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <p>
+                    <em>@T("Plugins.Widgets.Retargeting.DiscountTypeNote")</em>
+                </p>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.TrackingApiKey_OverrideForStore, model => model.TrackingApiKey, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.TrackingApiKey)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.TrackingApiKey)
+                        @Html.ValidationMessageFor(model => model.TrackingApiKey)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.RestApiKey_OverrideForStore, model => model.RestApiKey, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.RestApiKey)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.RestApiKey)
+                        @Html.ValidationMessageFor(model => model.RestApiKey)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.ProductBoxSelector_OverrideForStore, model => model.ProductBoxSelector, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.ProductBoxSelector)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.ProductBoxSelector)
+                        @Html.ValidationMessageFor(model => model.ProductBoxSelector)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.AddToCartCatalogButtonSelector_OverrideForStore, model => model.AddToCartCatalogButtonSelector, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.AddToCartCatalogButtonSelector)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.AddToCartCatalogButtonSelector)
+                        @Html.ValidationMessageFor(model => model.AddToCartCatalogButtonSelector)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.AddToCartButtonDetailsPrefix_OverrideForStore, model => model.AddToCartButtonIdDetailsPrefix, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.AddToCartButtonIdDetailsPrefix)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.AddToCartButtonIdDetailsPrefix)
+                        @Html.ValidationMessageFor(model => model.AddToCartButtonIdDetailsPrefix)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.AddToWishlistCatalogButtonSelector_OverrideForStore, model => model.AddToWishlistCatalogButtonSelector, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.AddToWishlistCatalogButtonSelector)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.AddToWishlistCatalogButtonSelector)
+                        @Html.ValidationMessageFor(model => model.AddToWishlistCatalogButtonSelector)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.AddToWishlistButtonIdDetailsPrefix_OverrideForStore, model => model.AddToWishlistButtonIdDetailsPrefix, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.AddToWishlistButtonIdDetailsPrefix)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.AddToWishlistButtonIdDetailsPrefix)
+                        @Html.ValidationMessageFor(model => model.AddToWishlistButtonIdDetailsPrefix)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.PriceLabelSelector_OverrideForStore, model => model.ProductPriceLabelDetailsSelector, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.ProductPriceLabelDetailsSelector)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.ProductPriceLabelDetailsSelector)
+                        @Html.ValidationMessageFor(model => model.ProductPriceLabelDetailsSelector)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.ProductMainPictureIdDetailsPrefix_OverrideForStore, model => model.ProductMainPictureIdDetailsPrefix, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.ProductMainPictureIdDetailsPrefix)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.ProductMainPictureIdDetailsPrefix)
+                        @Html.ValidationMessageFor(model => model.ProductMainPictureIdDetailsPrefix)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.HelpTopicSystemNames_OverrideForStore, model => model.HelpTopicSystemNames, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.HelpTopicSystemNames)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.HelpTopicSystemNames)
+                        @Html.ValidationMessageFor(model => model.HelpTopicSystemNames)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.ProductReviewAddedResultSelector_OverrideForStore, model => model.ProductReviewAddedResultSelector, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.ProductReviewAddedResultSelector)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.ProductReviewAddedResultSelector)
+                        @Html.ValidationMessageFor(model => model.ProductReviewAddedResultSelector)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-9 col-md-offset-3">
+                        <input type="submit" name="save" class="btn bg-blue" value="@T("Admin.Common.Save")"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@helper PreconfigureSystem()
+{
+    <div class="panel-group">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <div class="form-group">
+                    <div class="col-md-12">
+                        <h4>This tab allows you to preconfigure the store for correct working:</h4>
+                        <ul class="margin-bottom">
+                            <li>Set "Display cart after adding product" to false</li>
+                            <li>Set "Display wishlist after adding product" to false</li>
+                            <li>Enable "Order completed" page</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-12">
+                        <button type="submit" name="preconfigure" class="btn bg-blue">
+                            @T("Plugins.Widgets.Retargeting.PreconfigureButton")
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

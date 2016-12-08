@@ -1,0 +1,11 @@
+C:\!work\retargeting-plugin-for-nopcommerce\Presentation\Nop.Web\Plugins\Widgets.Retargeting\web.config
+C:\!work\retargeting-plugin-for-nopcommerce\Presentation\Nop.Web\Plugins\Widgets.Retargeting\Description.txt
+C:\!work\retargeting-plugin-for-nopcommerce\Presentation\Nop.Web\Plugins\Widgets.Retargeting\logo.png
+C:\!work\retargeting-plugin-for-nopcommerce\Presentation\Nop.Web\Plugins\Widgets.Retargeting\Views\WidgetsRetargeting\Configure.cshtml
+C:\!work\retargeting-plugin-for-nopcommerce\Presentation\Nop.Web\Plugins\Widgets.Retargeting\Nop.Plugin.Widgets.Retargeting.dll.config
+C:\!work\retargeting-plugin-for-nopcommerce\Presentation\Nop.Web\Plugins\Widgets.Retargeting\Nop.Plugin.Widgets.Retargeting.dll
+C:\!work\retargeting-plugin-for-nopcommerce\Presentation\Nop.Web\Plugins\Widgets.Retargeting\Nop.Plugin.Widgets.Retargeting.pdb
+C:\!work\retargeting-plugin-for-nopcommerce\Plugins\Nop.Plugin.Misc.Retargeting\obj\Debug\Nop.Plugin.Widgets.Retargeting.csprojResolveAssemblyReference.cache
+C:\!work\retargeting-plugin-for-nopcommerce\Plugins\Nop.Plugin.Misc.Retargeting\obj\Debug\Nop.Plugin.Widgets.Retargeting.dll
+C:\!work\retargeting-plugin-for-nopcommerce\Plugins\Nop.Plugin.Misc.Retargeting\obj\Debug\Nop.Plugin.Widgets.Retargeting.pdb
+C:\!work\retargeting-plugin-for-nopcommerce\Presentation\Nop.Web\Plugins\Widgets.Retargeting\Views\WidgetsRetargeting\PublicInfo.cshtml
