@@ -1,4 +1,3 @@
-using System.Web.Mvc;
 using Autofac;
 using Autofac.Core;
 using Nop.Core.Caching;

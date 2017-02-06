@@ -1,15 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Web;
-using System.Web.Mvc;
 using System.Web.Routing;
-using System.Xml;
 using Nop.Core;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Orders;
@@ -22,34 +18,23 @@ using Nop.Services.Directory;
 using Nop.Services.Discounts;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
-using Nop.Services.Media;
 using Nop.Services.Orders;
 using Nop.Services.Security;
-using Nop.Services.Stores;
 using Nop.Services.Tax;
-using Nop.Services.Topics;
-using OrderItem = Nop.Plugin.Widgets.Retargeting.Models.OrderItem;
 
 namespace Nop.Plugin.Widgets.Retargeting
 {
     public class RetargetingPlugin : BasePlugin, IWidgetPlugin
     {
         private readonly ITaxService _taxService;
-        private readonly ITopicService _topicService;
-        private readonly IStoreService _storeService;
         private readonly IOrderService _orderService;
-        private readonly IPictureService _pictureService;
         private readonly ISettingService _settingService;
         private readonly IProductService _productService;
         private readonly IDiscountService _discountService;
         private readonly ICurrencyService _currencyService;
-        private readonly ICategoryService _categoryService;
         private readonly IPermissionService _permissionService;
         private readonly IShoppingCartService _shoppingCartService;
-        private readonly IManufacturerService _manufacturerService;
-        private readonly ILocalizationService _localizationService;
         private readonly IPriceCalculationService _priceCalculationService;
-        private readonly IProductAttributeService _productAttributeService;
 
         private readonly ILogger _logger;
         private readonly IWorkContext _workContext;
@@ -61,21 +46,14 @@ namespace Nop.Plugin.Widgets.Retargeting
 
         public RetargetingPlugin(
             ITaxService taxService,
-            ITopicService topicService,
-            IStoreService storeService,
             IOrderService orderService,
-            IPictureService pictureService,
             ISettingService settingService,
             IProductService productService,
             ICurrencyService currencyService,
-            ICategoryService categoryService,
             IDiscountService discountService,
             IPermissionService permissionService,
             IShoppingCartService shoppingCartService,
-            IManufacturerService manufacturerService,
-            ILocalizationService localizationService,
             IPriceCalculationService priceCalculationService,
-            IProductAttributeService productAttributeService,
 
             ILogger logger,
             IWorkContext workContext,
@@ -86,21 +64,14 @@ namespace Nop.Plugin.Widgets.Retargeting
             OrderSettings orderSettings)
         {
             _taxService = taxService;
-            _topicService = topicService;
-            _storeService = storeService;
             _orderService = orderService;
-            _pictureService = pictureService;
             _settingService = settingService;
             _productService = productService;
             _currencyService = currencyService;
-            _categoryService = categoryService;
             _discountService = discountService;
             _permissionService = permissionService;
             _shoppingCartService = shoppingCartService;
-            _manufacturerService = manufacturerService;
-            _localizationService = localizationService;
             _priceCalculationService = priceCalculationService;
-            _productAttributeService = productAttributeService;
 
             _logger = logger;
             _workContext = workContext;
