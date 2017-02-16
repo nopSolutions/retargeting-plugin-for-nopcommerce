@@ -124,6 +124,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             {
                 TrackingApiKey = retargetingSettings.TrackingApiKey,
                 RestApiKey = retargetingSettings.RestApiKey,
+                UseHttpPostInsteadOfAjaxInAddToCart = retargetingSettings.UseHttpPostInsteadOfAjaxInAddToCart,
                 AddToCartButtonIdDetailsPrefix = retargetingSettings.AddToCartButtonIdDetailsPrefix,
                 ProductPriceLabelDetailsSelector = retargetingSettings.ProductPriceLabelDetailsSelector,
                 AddToWishlistButtonIdDetailsPrefix = retargetingSettings.AddToWishlistButtonIdDetailsPrefix,
@@ -141,6 +142,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             {
                 model.TrackingApiKey_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.TrackingApiKey, storeScope);
                 model.RestApiKey_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RestApiKey, storeScope);
+                model.UseHttpPostInsteadOfAjaxInAddToCart_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.UseHttpPostInsteadOfAjaxInAddToCart, storeScope);
                 model.AddToCartButtonDetailsPrefix_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.AddToCartButtonIdDetailsPrefix, storeScope);
                 model.PriceLabelSelector_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.ProductPriceLabelDetailsSelector, storeScope);
                 model.AddToWishlistButtonIdDetailsPrefix_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.AddToWishlistButtonIdDetailsPrefix, storeScope);
@@ -171,6 +173,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             //save settings
             retargetingSettings.TrackingApiKey = model.TrackingApiKey;
             retargetingSettings.RestApiKey = model.RestApiKey;
+            retargetingSettings.UseHttpPostInsteadOfAjaxInAddToCart = model.UseHttpPostInsteadOfAjaxInAddToCart;
             retargetingSettings.AddToCartButtonIdDetailsPrefix = model.AddToCartButtonIdDetailsPrefix;
             retargetingSettings.ProductPriceLabelDetailsSelector = model.ProductPriceLabelDetailsSelector;
             retargetingSettings.AddToWishlistButtonIdDetailsPrefix = model.AddToWishlistButtonIdDetailsPrefix;
@@ -186,6 +189,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
              * and loaded from database after each update */
             _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.TrackingApiKey, model.TrackingApiKey_OverrideForStore, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RestApiKey, model.RestApiKey_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.UseHttpPostInsteadOfAjaxInAddToCart, model.UseHttpPostInsteadOfAjaxInAddToCart_OverrideForStore, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToCartButtonIdDetailsPrefix, model.AddToCartButtonDetailsPrefix_OverrideForStore, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductPriceLabelDetailsSelector, model.PriceLabelSelector_OverrideForStore, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToWishlistButtonIdDetailsPrefix, model.AddToWishlistButtonIdDetailsPrefix_OverrideForStore, storeScope, false);
@@ -516,6 +520,22 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 }
             }
 
+            //remove from cart
+            model.CartItemsToDelete = _httpContext.Session != null
+                ? _httpContext.Session["ra_shoppingCartItemsToDelete"] as
+                    Dictionary<int, Dictionary<string, string>> ?? new Dictionary<int, Dictionary<string, string>>()
+                : new Dictionary<int, Dictionary<string, string>>();
+            _httpContext.Session["ra_shoppingCartItemsToDelete"] = null;
+
+            //add to cart
+            if (retargetingSettings.UseHttpPostInsteadOfAjaxInAddToCart)
+            {
+                model.AddToCartProductInfo = _httpContext.Session != null
+                    ? _httpContext.Session["ra_addToCartProductInfo"]
+                    : null;
+                _httpContext.Session["ra_addToCartProductInfo"] = null;
+            }
+
             return View("~/Plugins/Widgets.Retargeting/Views/WidgetsRetargeting/PublicInfo.cshtml", model);
         }
 
@@ -776,21 +796,21 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 var inventory = new Dictionary<string, object>();
                 var attributes = new Dictionary<string, object>();
 
-                var allAttributesXml = _productAttributeParser.GenerateAllCombinations(product, true);
-                foreach (var attributesXml in allAttributesXml)
+                var allAttributeCombinationsXml = _productAttributeParser.GenerateAllCombinations(product, true);
+                foreach (var attributeCombinationXml in allAttributeCombinationsXml)
                 {
                     var warnings = new List<string>();
                     warnings.AddRange(_shoppingCartService.GetShoppingCartItemAttributeWarnings(_workContext.CurrentCustomer,
-                        ShoppingCartType.ShoppingCart, product, 1, attributesXml, true));
+                        ShoppingCartType.ShoppingCart, product, 1, attributeCombinationXml, true));
                     if (warnings.Count != 0)
                         continue;
 
                     var inStock = true;
-                    var existingCombination = _productAttributeParser.FindProductAttributeCombination(product, attributesXml);
+                    var existingCombination = _productAttributeParser.FindProductAttributeCombination(product, attributeCombinationXml);
                     if (existingCombination != null)
                         inStock = existingCombination.StockQuantity > 0;
 
-                    var varCode = plugin.GetCombinationCode(attributesXml);
+                    var varCode = plugin.GetCombinationCode(attributeCombinationXml);
                     if (!attributes.ContainsKey(varCode))
                         attributes.Add(varCode, inStock);
                 }
@@ -823,100 +843,32 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
         [HttpPost]
         [ValidateInput(false)]
-        public ActionResult GetProductIdBySciId(int sciId)
-        {
-            var productId = 0;
-            var item = _workContext.CurrentCustomer.ShoppingCartItems
-                .Where(sci => sci.ShoppingCartType == ShoppingCartType.ShoppingCart && sci.Id == sciId)
-                .LimitPerStore(_storeContext.CurrentStore.Id).FirstOrDefault();
-
-            if (item != null)
-                productId = item.ProductId;
-
-            return Json(new
-            {
-                productId = productId
-            });
-        }
-
-        [HttpPost]
-        [ValidateInput(false)]
         public ActionResult IsProductCombinationInStock(int productId, FormCollection form)
         {
             var product = _productService.GetProductById(productId);
             if (product == null)
                 return new NullJsonResult();
 
-            var productIsInStock = false;
-            string attributeXml = ParseProductAttributes(product, form);
+            var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
+            if (pluginDescriptor == null)
+                throw new Exception("Cannot load the plugin");
 
-            switch (product.ManageInventoryMethod)
-            {
-                case ManageInventoryMethod.ManageStock:
-                    {
-                        #region Manage stock
+            var plugin = pluginDescriptor.Instance() as RetargetingPlugin;
+            if (plugin == null)
+                throw new Exception("Cannot load the plugin");
 
-                        if (!product.DisplayStockAvailability)
-                            productIsInStock = true;
+            var attributeXml = ParseProductAttributes(product, form);
 
-                        var stockQuantity = product.GetTotalStockQuantity();
-                        if (stockQuantity > 0)
-                            productIsInStock = true;
-                        else
-                            //out of stock
-                            switch (product.BackorderMode)
-                            {
-                                case BackorderMode.AllowQtyBelow0:
-                                    productIsInStock = true;
-                                    break;
-                                case BackorderMode.AllowQtyBelow0AndNotifyCustomer:
-                                    productIsInStock = true;
-                                    break;
-                                case BackorderMode.NoBackorders:
-                                default:
-                                    break;
-                            }
+            string variationCode;
+            Dictionary<string, object> variationDetails;
 
-                        #endregion
-                    }
-                    break;
-
-                case ManageInventoryMethod.ManageStockByAttributes:
-                    {
-                        #region Manage stock by attributes
-
-                        if (!product.DisplayStockAvailability)
-                            productIsInStock = true;
-
-                        var combination = _productAttributeParser.FindProductAttributeCombination(product, attributeXml);
-                        if (combination != null)
-                        {
-                            //combination exists
-                            var stockQuantity = combination.StockQuantity;
-                            if (stockQuantity > 0)
-                                productIsInStock = true;
-                            else if (combination.AllowOutOfStockOrders)
-                                productIsInStock = true;
-                        }
-                        else
-                        {
-                            //no combination configured
-                            if (!product.AllowAddingOnlyExistingAttributeCombinations)
-                                productIsInStock = true;
-                        }
-
-                        #endregion
-                    }
-                    break;
-                case ManageInventoryMethod.DontManageStock:
-                default:
-                    productIsInStock = true;
-                    break;
-            }
+            var productIsInStock = plugin.IsProductCombinationInStock(product, attributeXml, out variationCode, out variationDetails);
 
             return Json(new
             {
-                productIsInStock = productIsInStock
+                stock = productIsInStock,
+                variationCode = variationCode,
+                variationDetails = variationDetails
             });
         }
 

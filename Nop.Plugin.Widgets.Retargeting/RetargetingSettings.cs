@@ -8,6 +8,8 @@ namespace Nop.Plugin.Widgets.Retargeting
 
         public string RestApiKey { get; set; }
 
+        public bool UseHttpPostInsteadOfAjaxInAddToCart { get; set; }
+
         public string ProductBoxSelector { get; set; }
 
         public string AddToCartCatalogButtonSelector { get; set; }

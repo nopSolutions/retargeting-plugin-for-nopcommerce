@@ -1,4 +1,6 @@
-﻿@using Nop.Plugin.Widgets.Retargeting.Models
+﻿@using System.Web.Script.Serialization
+@using Nop.Core.Domain.Orders
+@using Nop.Plugin.Widgets.Retargeting.Models
 @model Nop.Plugin.Widgets.Retargeting.Models.PublicInfoModel
 @{
     Layout = "";
@@ -29,18 +31,79 @@
         s.parentNode.insertBefore(ra, s);
     })();
 
-    var addToCartInfo = {};
-    var addToWishlistInfo = {};
+    var isProductDetailsButton = {};
 
     var _ra = _ra || {};
 
     $(document).ready(function () {
+        //add to cart
+        $(document).ajaxComplete(function (event, xhr) {
+            if (xhr) {
+                var json;
+
+                try {
+                    json = JSON.parse(xhr.responseText);
+                } catch (e) {
+                    return;
+                }
+
+                var addToCartProductInfo = json.ra_addToCartProductInfo;
+                if (!addToCartProductInfo) {
+                    return;
+                }
+
+                if (addToCartProductInfo.shoppingCartType == "@((int)ShoppingCartType.ShoppingCart)") {
+                    if (isProductDetailsButton) {
+                        //add to cart
+                        addToCart(addToCartProductInfo.product_id, addToCartProductInfo.quantity, addToCartProductInfo.variation);
+                    } else {
+                        //get product info
+                        $.ajax({
+                            cache: false,
+                            url: "/WidgetsRetargeting/GetProductInfo?productId=" + addToCartProductInfo.product_id,
+                            type: "post",
+                            success: function (data) {
+                                if (data.result) {
+                                    //send product
+                                    sendProduct(data.result);
+                                    //add to cart
+                                    addToCart(addToCartProductInfo.product_id, addToCartProductInfo.quantity, addToCartProductInfo.variation);
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    if (addToCartProductInfo.shoppingCartType == "@((int)ShoppingCartType.Wishlist)") {
+                        if (isProductDetailsButton) {
+                            //add to wishlist
+                            addToWishlist(addToCartProductInfo.product_id);
+                        } else {
+                            //get product info
+                            $.ajax({
+                                cache: false,
+                                url: "/WidgetsRetargeting/GetProductInfo?productId=" + addToCartProductInfo.product_id,
+                                type: "post",
+                                success: function (data) {
+                                    if (data.result) {
+                                        //send product
+                                        sendProduct(data.result);
+                                        //add to wishlist
+                                        addToWishlist(addToCartProductInfo.product_id);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+        });
+
         //user data (login, register)
         @if (Model.RenderSetEmailFunc)
         {
             <text>
-                setUserData("@Model.CustomerModel.Email", "@Model.CustomerModel.Name", "@Model.CustomerModel.Phone");
-            </text>
+        setUserData("@Model.CustomerModel.Email", "@Model.CustomerModel.Name", "@Model.CustomerModel.Phone");
+        </text>
         }
 
         //category
@@ -83,38 +146,38 @@
         @if (Model.RenderSendBrandFunc)
         {
             <text>
-                sendBrandInfo("@Model.ManufacturerModel.ManufacturerId", "@Model.ManufacturerModel.ManufacturerName");
-            </text>
+        sendBrandInfo("@Model.ManufacturerModel.ManufacturerId", "@Model.ManufacturerModel.ManufacturerName");
+        </text>
         }
 
         //product
         @if (Model.RenderSendProductFunc)
         {
             <text>
-                var productId = "@Model.ProductId";
-                //get product info
-                $.ajax({
-                    cache: false,
-                    url: "/WidgetsRetargeting/GetProductInfo?productId=" + productId,
-                    type: "post",
-                    success: function (data) {
-                        if (data.result) {
-                            //send product
-                            sendProduct(data.result);
+        var productId = "@Model.ProductId";
+        //get product info
+        $.ajax({
+            cache: false,
+            url: "/WidgetsRetargeting/GetProductInfo?productId=" + productId,
+            type: "post",
+            success: function (data) {
+                if (data.result) {
+                    //send product
+                    sendProduct(data.result);
 
-                            //set variation event
-                            $("select[name^=product_attribute_]").on("change", function () {
-                                setVariation(this);
-                            });
-                            $("[name^=product_attribute_][type=radio]").on("change", function () {
-                                setVariation(this);
-                            });
-                            $("[name^=product_attribute_][type=checkbox]").on("change", function () {
-                                setVariation(this);
-                            });
-                        }
-                    }
-                });
+                    //set variation event
+                    $("select[name^=product_attribute_]").on("change", function () {
+                        setVariation(this);
+                    });
+                    $("[name^=product_attribute_][type=radio]").on("change", function () {
+                        setVariation(this);
+                    });
+                    $("[name^=product_attribute_][type=checkbox]").on("change", function () {
+                        setVariation(this);
+                    });
+                }
+            }
+        });
 
         </text>
         }
@@ -123,68 +186,72 @@
         @if (Model.RenderAddToCartFunc)
         {
             <text>
-            //add to cart (product details page)
-            var addToCartDetailsButtons = $("[id^=" + "@Model.AddToCartButtonIdDetailsPrefix" + "]");
-            addToCartDetailsButtons.each(function (index) {
-                $(addToCartDetailsButtons[index]).on("click", function (e) {
-                    addToCartInfo.productDetailsPage = true;
-                    addToCartInfo.productId = $(addToCartDetailsButtons[index]).attr("id").replace("@Model.AddToCartButtonIdDetailsPrefix", "");
-                    addToCartInfo.productQty = $("[name=\"addtocart_" + addToCartInfo.productId + ".EnteredQuantity\"]").val();
-                    addToCartInfo.productVariation = GetSelectedProductVariation(addToCartInfo.productId, "#product-details-form");
-                });
+        //add to cart (product details page)
+        var addToCartDetailsButtons = $("[id^=" + "@Model.AddToCartButtonIdDetailsPrefix" + "]");
+        addToCartDetailsButtons.each(function (index) {
+            $(addToCartDetailsButtons[index]).on("click", function (e) {
+                isProductDetailsButton = true;
             });
+        });
 
-            //add to cart (product box)
-            var addToCartProductBoxButtons = $("@Model.AddToCartCatalogButtonSelector");
-            addToCartProductBoxButtons.each(function (index) {
-                $(addToCartProductBoxButtons[index]).on("click", function (e) {
-                    addToCartInfo.productDetailsPage = false;
-                    addToCartInfo.productId = $(addToCartProductBoxButtons[index]).closest("[data-productid]").attr("data-productid");
-                    addToCartInfo.productQty = 1;
-                    addToCartInfo.productVariation = false;
-                });
+        //add to cart (product box)
+        var addToCartProductBoxButtons = $("@Model.AddToCartCatalogButtonSelector");
+        addToCartProductBoxButtons.each(function (index) {
+            $(addToCartProductBoxButtons[index]).on("click", function (e) {
+                isProductDetailsButton = false;
             });
+        });
+        </text>
 
-            //remove from cart
-            var updatecartButton = $("[name=updatecart]");
-            var currentItemQtys = [];
-            $("[name^=itemquantity]").each(function (index) {
-                currentItemQtys.push({
-                    itemId: $("[name^=itemquantity]")[index].name.replace("itemquantity", ""),
-                    itemQty: $("[name^=itemquantity]")[index].value
+            if (Model.AddToCartProductInfo != null)
+            {
+                <text>
+        var addToCartProductInfo = JSON.parse('@(Html.Raw(new JavaScriptSerializer().Serialize(Model.AddToCartProductInfo)))');
+
+        if (addToCartProductInfo.shoppingCartType == "@((int) ShoppingCartType.ShoppingCart)") {
+                //get product info
+                $.ajax({
+                    cache: false,
+                    url: "/WidgetsRetargeting/GetProductInfo?productId=" + addToCartProductInfo.product_id,
+                    type: "post",
+                    success: function (data) {
+                        if (data.result) {
+                            //send product
+                            sendProduct(data.result);
+                            //add to cart
+                            addToCart(addToCartProductInfo.product_id, addToCartProductInfo.quantity, addToCartProductInfo.variation);
+                        }
+                    }
                 });
-            });
-
-            if (updatecartButton) {
-                $(updatecartButton).on("click", function (e) {
-                    var removefromcart = $("[name=removefromcart]:checked");
-
-                    $.each(currentItemQtys, function (index, element) {
-                        var newQty = $("[name^=itemquantity" + element.itemId + "]").val();
-                        removefromcart.each(function (i) {
-                            if (element.itemId == removefromcart[i].value) {
-                                newQty = 0;
-                                return;
+        } else {
+            if (addToCartProductInfo.shoppingCartType == "@((int) ShoppingCartType.Wishlist)") {
+                    //get product info
+                    $.ajax({
+                        cache: false,
+                        url: "/WidgetsRetargeting/GetProductInfo?productId=" + addToCartProductInfo.product_id,
+                        type: "post",
+                        success: function (data) {
+                            if (data.result) {
+                                //send product
+                                sendProduct(data.result);
+                                //add to wishlist
+                                addToWishlist(addToCartProductInfo.product_id);
                             }
-                        });
-
-                        if (newQty <= 0) {
-                            $.ajax({
-                                cache: false,
-                                async: false,
-                                url: "/WidgetsRetargeting/GetProductIdBySciId?sciId=" + element.itemId,
-                                type: "post",
-                                success: function (data) {
-                                    if (data.productId && data.productId > 0) {
-                                        removeFromCart(data.productId, element.itemQty, false);
-                                    }
-                                }
-                            });
                         }
                     });
-                });
             }
-        </text>
+        }                    
+                
+                </text>
+            }
+        }
+
+        //remove from cart
+        @foreach (var item in Model.CartItemsToDelete)
+        {
+            <text>
+        removeFromCart('@item.Key', '@item.Value["quantity"]', '@(Html.Raw(item.Value["variation"]))');
+            </text>
         }
 
         //add to wishlist
@@ -195,8 +262,7 @@
         var addToWishlistDetailsButtons = $("[id^=" + "@Model.AddToWishlistButtonIdDetailsPrefix" + "]");
         addToWishlistDetailsButtons.each(function (index) {
             $(addToWishlistDetailsButtons[index]).on("click", function (e) {
-                addToWishlistInfo.productDetailsPage = true;
-                addToWishlistInfo.productId = $(addToWishlistDetailsButtons[index]).attr("id").replace("@Model.AddToWishlistButtonIdDetailsPrefix", "");
+                isProductDetailsButton = true;
             });
         });
 
@@ -205,8 +271,7 @@
                                                 + "@Model.AddToWishlistCatalogButtonSelector");
         addToWishlistProductBoxButtons.each(function (index) {
             $(addToWishlistProductBoxButtons[index]).on("click", function (e) {
-                addToWishlistInfo.productDetailsPage = false;
-                addToWishlistInfo.productId = $(addToWishlistProductBoxButtons[index]).closest("[data-productid").attr("data-productid");
+                isProductDetailsButton = false;
             });
         });
         </text>
@@ -312,11 +377,17 @@
     }
 
     function removeFromCart(productId, productQty, variation) {
+        _ra.removeFromCartInfo = {
+            "product_id": productId,
+            "quantity": productQty, 
+            "variation": variation
+            };
+
         if (_ra.ready !== undefined) {
             _ra.removeFromCart(
-                productId,
-                productQty,
-                variation
+                _ra.removeFromCartInfo.product_id,
+                _ra.removeFromCartInfo.quantity,
+                _ra.removeFromCartInfo.variation
             );
         }
     }
@@ -427,192 +498,27 @@
 
     function setVariation(attrInput) {
         var productId = $(attrInput).closest("[data-productid]").attr("data-productid");
-        var variation = GetSelectedProductVariation(productId, "#product-details-form");
 
-        if (_ra.ready !== undefined) {
-            _ra.setVariation(productId, variation);
-        }
-    }
-
-    function GetSelectedProductVariation(productId, formId) {
-        var varCode = "";
-        var varOptions = [];
-
-        //attrubute type "select"
-        var attrsOptions = $("[data-productid=" + productId + "] select[name^=product_attribute_] option:selected");
-        for (var i = 0; i < attrsOptions.length; i++) {
-            var attr = $(attrsOptions[i]);
-            var attrId = $(attr.closest("select")).attr("name").replace("product_attribute_", "");
-            var attrName = $("[data-productid=" + productId + "] [id^=product_attribute_label_" + attrId + "] .text-prompt").text().trim();
-            var attrValue = attr.val();
-            var attrTextValue = attr.text().trim();
-
-            if (attrValue) {
-                //var code
-                varCode += attrValue;
-                varCode += "-";
-
-                //option info
-                varOptions[attrValue] = {
-                    "category_name": attrName,
-                    "category": attrId,
-                    "value": attrTextValue
-                };
-            }
-        }
-
-        //attribute type "input" which could be checked
-        var attrsChecked = $("[data-productid=" + productId + "] [name^=product_attribute_]:checked");
-        for (var i = 0; i < attrsChecked.length; i++) {
-            var attr = $(attrsChecked[i]);
-
-            var attrId = attr.attr("name").replace("product_attribute_", "");
-            var attrName = $("[data-productid=" + productId + "] [id^=product_attribute_label_" + attrId + "] .text-prompt").text().trim();
-            var attrValue = attr.val();
-            var attrTextValue = "";
-
-            if (attr.prev().hasClass("color-container")) {
-                if (attr.prev().attr("title")) {
-                    attrTextValue = attr.prev().attr("title");
-                } else {
-                    if ($(".tooltip-header", $(attr.prev().closest("label")).next())) {
-                        attrTextValue = $(".tooltip-header", $(attr.prev().closest("label")).next()).text().trim();
-                    }
-                }
-            } else {
-                attrTextValue = $("[data-productid=" + productId + "] label[for=" + attr.attr("id") + "]").text().trim();
-            }
-
-            if (attrValue) {
-                //var code
-                varCode += attrValue;
-                varCode += "-";
-
-                //option info
-                varOptions[attrValue] = {
-                    "category_name": attrName,
-                    "category": attrId,
-                    "value": attrTextValue
-                };
-            }
-        }
-
-        //remove the last "-"
-        varCode = varCode.slice(0, -1);
-
-        //remove undefined items
-        $.grep(varOptions, function (n, i) {
-            return (n !== undefined);
-        });
-
-        var stock = true;
         $.ajax({
             cache: false,
-            async: false,
+            async: true,
             url: "/WidgetsRetargeting/IsProductCombinationInStock?productId=" + productId,
-            data: $(formId).serialize(),
+            data: $("#product-details-form").serialize(),
             type: "post",
             success: function (data) {
-                if (data.productIsInStock) {
-                    stock = data.productIsInStock;
+                var productVariation = false;
+
+                if (data.variationCode.length > 0)
+                    productVariation = {
+                        "code": data.variationCode,
+                        "stock": data.stock,
+                        "details": data.variationDetails
+                    };
+
+                if (_ra.ready !== undefined) {
+                    _ra.setVariation(productId, productVariation);
                 }
             }
         });
-
-        var productVariation = false;
-        if (varOptions.length > 0)
-            productVariation = {
-                "code": varCode,
-                "stock": stock,
-                "details": varOptions
-            };
-
-        return productVariation;
-    }
-
-    //override default method
-    AjaxCart.success_process = function (response) {
-        if (response.updatetopcartsectionhtml) {
-            $(AjaxCart.topcartselector).html(response.updatetopcartsectionhtml);
-        }
-        if (response.updatetopwishlistsectionhtml) {
-            $(AjaxCart.topwishlistselector).html(response.updatetopwishlistsectionhtml);
-
-            if (addToWishlistInfo.productId) {
-                if (addToWishlistInfo.productDetailsPage) {
-                    //add to wishlist
-                    addToWishlist(addToWishlistInfo.productId);
-                } else {
-                    //get product info
-                    $.ajax({
-                        cache: false,
-                        url: "/WidgetsRetargeting/GetProductInfo?productId=" + addToWishlistInfo.productId,
-                        type: "post",
-                        success: function (data) {
-                            if (data.result) {
-                                //send product
-                                sendProduct(data.result);
-                                //add to wishlist
-                                addToWishlist(addToWishlistInfo.productId);
-                            }
-                        }
-                    });
-                }
-            }
-        }
-        if (response.updateflyoutcartsectionhtml) {
-            $(AjaxCart.flyoutcartselector).replaceWith(response.updateflyoutcartsectionhtml);
-
-            if (addToCartInfo.productId) {
-                if (addToCartInfo.productDetailsPage) {
-                    //add to cart
-                    addToCart(addToCartInfo.productId, addToCartInfo.productQty, addToCartInfo.productVariation);
-                } else {
-                    //get product info
-                    $.ajax({
-                        cache: false,
-                        url: "/WidgetsRetargeting/GetProductInfo?productId=" + addToCartInfo.productId,
-                        type: "post",
-                        success: function (data) {
-                            if (data.result) {
-                                //send product
-                                sendProduct(data.result);
-                                //add to cart
-                                addToCart(addToCartInfo.productId, addToCartInfo.productQty, addToCartInfo.productVariation);
-                            }
-                        }
-                    });
-                }
-            }
-        }
-        if (response.message) {
-            //display notification
-            if (response.success == true) {
-                //success
-                if (AjaxCart.usepopupnotifications == true) {
-                    displayPopupNotification(response.message, 'success', true);
-                }
-                else {
-                    //specify timeout for success messages
-                    displayBarNotification(response.message, 'success', 3500);
-                }
-            }
-            else {
-                //error
-                if (AjaxCart.usepopupnotifications == true) {
-                    displayPopupNotification(response.message, 'error', true);
-                }
-                else {
-                    //no timeout for errors
-                    displayBarNotification(response.message, 'error', 0);
-                }
-            }
-            return false;
-        }
-        if (response.redirect) {
-            location.href = response.redirect;
-            return true;
-        }
-        return false;
     }
 </script>

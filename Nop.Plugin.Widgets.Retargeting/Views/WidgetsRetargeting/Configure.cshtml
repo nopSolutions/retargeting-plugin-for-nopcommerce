@@ -38,6 +38,9 @@
         <div class="panel panel-default">
             <div class="panel-body">
                 <p>
+                    <em>@T("Plugins.Widgets.Retargeting.CustomizationNote")</em>
+                </p>
+                <p>
                     <em>@T("Plugins.Widgets.Retargeting.DiscountTypeNote")</em>
                 </p>
                 <div class="form-group">
@@ -58,6 +61,16 @@
                     <div class="col-md-9">
                         @Html.NopEditorFor(model => model.RestApiKey)
                         @Html.ValidationMessageFor(model => model.RestApiKey)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.UseHttpPostInsteadOfAjaxInAddToCart_OverrideForStore, model => model.UseHttpPostInsteadOfAjaxInAddToCart, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.UseHttpPostInsteadOfAjaxInAddToCart)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.UseHttpPostInsteadOfAjaxInAddToCart)
+                        @Html.ValidationMessageFor(model => model.UseHttpPostInsteadOfAjaxInAddToCart)
                     </div>
                 </div>
                 <div class="form-group">
@@ -171,6 +184,7 @@
                         <ul class="margin-bottom">
                             <li>Set "Display cart after adding product" to false</li>
                             <li>Set "Display wishlist after adding product" to false</li>
+                            <li>Set "Default picture zoom enabled" to true</li>
                             <li>Enable "Order completed" page</li>
                         </ul>
                     </div>

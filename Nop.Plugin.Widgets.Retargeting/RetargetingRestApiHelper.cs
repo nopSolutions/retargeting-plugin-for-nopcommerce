@@ -39,7 +39,6 @@ namespace Nop.Plugin.Widgets.Retargeting
                         var streamReader = new StreamReader(responseStream);
                         result = streamReader.ReadToEnd();
                         streamReader.Close();
-                        logger.Error(string.Format("Retargeting REST API. Saving the order data error: {0}", result));
                     }
                 }
             }

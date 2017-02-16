@@ -14,6 +14,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Models
         public string RestApiKey { get; set; }
         public bool RestApiKey_OverrideForStore { get; set; }
 
+        [NopResourceDisplayName("Plugins.Widgets.Retargeting.UseHttpPostInsteadOfAjaxInAddToCart")]
+        public bool UseHttpPostInsteadOfAjaxInAddToCart { get; set; }
+        public bool UseHttpPostInsteadOfAjaxInAddToCart_OverrideForStore { get; set; }
+
         [NopResourceDisplayName("Plugins.Widgets.Retargeting.AddToCartButtonIdDetailsPrefix")]
         public string AddToCartButtonIdDetailsPrefix { get; set; }
         public bool AddToCartButtonDetailsPrefix_OverrideForStore { get; set; }

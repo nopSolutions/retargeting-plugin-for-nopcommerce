@@ -10,14 +10,18 @@ namespace Nop.Plugin.Widgets.Retargeting.Models
             ManufacturerModel = new ManufacturerModel();
             OrderModel = new OrderModel();
             CustomerModel = new CustomerModel();
+            CartItemsToDelete = new Dictionary<int, Dictionary<string, string>>();
         }
-
-
+        
         public string TrackingApiKey { get; set; }
 
         public int ProductId { get; set; }
 
         public string CartItemIds { get; set; }
+
+        public Dictionary<int, Dictionary<string, string>> CartItemsToDelete { get; set; }
+
+        public object AddToCartProductInfo { get; set; }
 
         public CustomerModel CustomerModel { get; set; }
 

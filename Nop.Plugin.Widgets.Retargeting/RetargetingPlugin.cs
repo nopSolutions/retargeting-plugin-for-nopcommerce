@@ -8,6 +8,7 @@ using System.Web;
 using System.Web.Routing;
 using Nop.Core;
 using Nop.Core.Domain.Catalog;
+using Nop.Core.Domain.Media;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Tax;
 using Nop.Core.Plugins;
@@ -34,6 +35,7 @@ namespace Nop.Plugin.Widgets.Retargeting
         private readonly ICurrencyService _currencyService;
         private readonly IPermissionService _permissionService;
         private readonly IShoppingCartService _shoppingCartService;
+        private readonly IProductAttributeService _productAttributeService;
         private readonly IPriceCalculationService _priceCalculationService;
 
         private readonly ILogger _logger;
@@ -43,6 +45,7 @@ namespace Nop.Plugin.Widgets.Retargeting
 
         private readonly ShoppingCartSettings _shoppingCartSettings;
         private readonly OrderSettings _orderSettings;
+        private readonly MediaSettings _mediaSettings;
 
         public RetargetingPlugin(
             ITaxService taxService,
@@ -53,6 +56,7 @@ namespace Nop.Plugin.Widgets.Retargeting
             IDiscountService discountService,
             IPermissionService permissionService,
             IShoppingCartService shoppingCartService,
+            IProductAttributeService productAttributeService,
             IPriceCalculationService priceCalculationService,
 
             ILogger logger,
@@ -61,7 +65,8 @@ namespace Nop.Plugin.Widgets.Retargeting
             IProductAttributeParser productAttributeParser,
 
             ShoppingCartSettings shoppingCartSettings,
-            OrderSettings orderSettings)
+            OrderSettings orderSettings,
+            MediaSettings mediaSettings)
         {
             _taxService = taxService;
             _orderService = orderService;
@@ -71,6 +76,7 @@ namespace Nop.Plugin.Widgets.Retargeting
             _discountService = discountService;
             _permissionService = permissionService;
             _shoppingCartService = shoppingCartService;
+            _productAttributeService = productAttributeService;
             _priceCalculationService = priceCalculationService;
 
             _logger = logger;
@@ -80,6 +86,7 @@ namespace Nop.Plugin.Widgets.Retargeting
 
             _shoppingCartSettings = shoppingCartSettings;
             _orderSettings = orderSettings;
+            _mediaSettings = mediaSettings;
         }
 
         /// <summary>
@@ -155,6 +162,8 @@ namespace Nop.Plugin.Widgets.Retargeting
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey.Hint", "To use Retargeting you need the Tracking API KEY from your Retargeting account.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RestApiKey", "REST API KEY");
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RestApiKey.Hint", "To use the REST API you need the REST API KEY from your Retargeting account.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.UseHttpPostInsteadOfAjaxInAddToCart", "Use HTTP POST method (add to cart)");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.UseHttpPostInsteadOfAjaxInAddToCart.Hint", "Check to use the HTTP POST method for adding to cart(wishlist) instead of ajax.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductBoxSelector", "Product box selector");
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductBoxSelector.Hint", "Product box selector.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.AddToCartCatalogButtonSelector", "Add to cart button selector (catalog)");
@@ -174,6 +183,7 @@ namespace Nop.Plugin.Widgets.Retargeting
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector", "Product review added result selector");
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector.Hint", "Product review added result selector.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.DiscountTypeNote", "Note: Retargeting can generate discounts through it's API. One of the generated discount types is Custom. We allow Retargeting to generate only Free Shipping discount as a Custom discount type.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.CustomizationNote", "Note: this plugin may work incorrectly in case you made some customization of your website.");
 
             base.Install();
         }
@@ -195,6 +205,8 @@ namespace Nop.Plugin.Widgets.Retargeting
 
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey");
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey.Hint");
+            this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.UseHttpPostInsteadOfAjaxInAddToCart");
+            this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.UseHttpPostInsteadOfAjaxInAddToCart.Hint");
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RestApiKey");
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RestApiKey.Hint");
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductBoxSelector");
@@ -216,6 +228,7 @@ namespace Nop.Plugin.Widgets.Retargeting
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector");
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector.Hint");
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.DiscountTypeNote");
+            this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.CustomizationNote");
 
             base.Uninstall();
         }
@@ -228,6 +241,9 @@ namespace Nop.Plugin.Widgets.Retargeting
 
             _orderSettings.DisableOrderCompletedPage = false;
             _settingService.SaveSetting(_orderSettings);
+
+            _mediaSettings.DefaultPictureZoomEnabled = true;
+            _settingService.SaveSetting(_mediaSettings);
         }
 
         public List<Dictionary<string, object>> GenerateProductStockFeed()
@@ -362,15 +378,15 @@ namespace Nop.Plugin.Widgets.Retargeting
             }
         }
 
-        public string GetCombinationCode(string attributesXml)
+        public string GetCombinationCode(string attributeCombinationXml)
         {
             var result = "";
 
-            var attributes = _productAttributeParser.ParseProductAttributeMappings(attributesXml);
+            var attributes = _productAttributeParser.ParseProductAttributeMappings(attributeCombinationXml);
             for (var i = 0; i < attributes.Count; i++)
             {
                 var attribute = attributes[i];
-                var valuesStr = _productAttributeParser.ParseValues(attributesXml, attribute.Id);
+                var valuesStr = _productAttributeParser.ParseValues(attributeCombinationXml, attribute.Id);
 
                 for (var j = 0; j < valuesStr.Count; j++)
                 {
@@ -442,7 +458,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                                                                                     : order.OrderItems.ElementAt(i).UnitPriceExclTax);
                         var variationCode = "";
                         var values = _productAttributeParser.ParseProductAttributeValues(order.OrderItems.ElementAt(i).AttributesXml);
-                        for (var j = 0; j < values.Count; i++)
+                        for (var j = 0; j < values.Count; j++)
                         {
                             variationCode += values[j].Id;
                             if (j < values.Count - 1)
@@ -465,6 +481,109 @@ namespace Nop.Plugin.Widgets.Retargeting
                     _orderService.UpdateOrder(order);
                 }
             }
+        }
+
+        public bool IsProductCombinationInStock(Product product, string attributeXml, 
+            out string variationCode, out Dictionary<string, object> variationDetails)
+        {
+            variationCode = "";
+            variationDetails = new Dictionary<string, object>();
+
+            if (product == null)
+                return false;
+
+            var productIsInStock = false;
+
+            switch (product.ManageInventoryMethod)
+            {
+                case ManageInventoryMethod.ManageStock:
+                    {
+                        #region Manage stock
+
+                        if (!product.DisplayStockAvailability)
+                            productIsInStock = true;
+
+                        var stockQuantity = product.GetTotalStockQuantity();
+                        if (stockQuantity > 0)
+                            productIsInStock = true;
+                        else
+                            //out of stock
+                            switch (product.BackorderMode)
+                            {
+                                case BackorderMode.AllowQtyBelow0:
+                                    productIsInStock = true;
+                                    break;
+                                case BackorderMode.AllowQtyBelow0AndNotifyCustomer:
+                                    productIsInStock = true;
+                                    break;
+                                case BackorderMode.NoBackorders:
+                                default:
+                                    break;
+                            }
+
+                        #endregion
+                    }
+                    break;
+
+                case ManageInventoryMethod.ManageStockByAttributes:
+                    {
+                        #region Manage stock by attributes
+
+                        if (!product.DisplayStockAvailability)
+                            productIsInStock = true;
+
+                        var combination = _productAttributeParser.FindProductAttributeCombination(product, attributeXml);
+                        if (combination != null)
+                        {
+                            //combination exists
+                            var stockQuantity = combination.StockQuantity;
+                            if (stockQuantity > 0)
+                                productIsInStock = true;
+                            else if (combination.AllowOutOfStockOrders)
+                                productIsInStock = true;
+                        }
+                        else
+                        {
+                            //no combination configured
+                            if (!product.AllowAddingOnlyExistingAttributeCombinations)
+                                productIsInStock = true;
+                        }
+
+                        #endregion
+                    }
+                    break;
+                case ManageInventoryMethod.DontManageStock:
+                default:
+                    productIsInStock = true;
+                    break;
+            }
+
+            var values = _productAttributeParser.ParseProductAttributeValues(attributeXml);
+            if (values.Count > 0)
+            {
+                for (var i = 0; i < values.Count; i++)
+                {
+                    variationCode += values[i].Id;
+                    if (i < values.Count - 1)
+                        variationCode += "-";
+
+                    var attributeMapping =
+                            _productAttributeService.GetProductAttributeMappingById(values[i].ProductAttributeMappingId);
+                    if (attributeMapping != null && attributeMapping.ProductAttribute != null)
+                    {
+                        variationDetails.Add(
+                            values[i].Id.ToString(),
+                            new
+                            {
+                                category_name = attributeMapping.ProductAttribute.GetLocalized(x => x.Name),
+                                category = attributeMapping.ProductAttribute.Id,
+                                value = values[i].Name
+                            });
+                    }
+                }
+            }
+
+            return productIsInStock;
         }
     }
 }
