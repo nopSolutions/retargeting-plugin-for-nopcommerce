@@ -157,6 +157,8 @@ namespace Nop.Plugin.Widgets.Retargeting
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureButton", "Preconfigure");
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureCompleted", "Preconfigure completed");
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureError", "Preconfigure error");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ResetSettings", "Reset settings");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.SettingsReset", "Settings have been reset");
 
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey", "Tracking API KEY");
             this.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey.Hint", "To use Retargeting you need the Tracking API KEY from your Retargeting account.");
@@ -202,6 +204,8 @@ namespace Nop.Plugin.Widgets.Retargeting
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureButton");
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureCompleted");
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureError");
+            this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ResetSettings");
+            this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.SettingsReset");
 
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey");
             this.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey.Hint");
@@ -354,25 +358,17 @@ namespace Nop.Plugin.Widgets.Retargeting
                     if (!product.CallForPrice)
                     {
                         decimal taxRate;
+                        decimal oldPriceBase = _taxService.GetProductPrice(product, product.OldPrice, out taxRate);
+                        decimal finalPriceWithDiscountBase = _taxService.GetProductPrice(product, _priceCalculationService.GetFinalPrice(product, _workContext.CurrentCustomer, includeDiscounts: true), out taxRate);
 
-                        var oldPriceBase = _taxService.GetProductPrice(product,
-                            _priceCalculationService.GetFinalPrice(product, _workContext.CurrentCustomer,
-                                includeDiscounts: false), out taxRate);
-                        var oldPrice = _currencyService.ConvertFromPrimaryStoreCurrency(oldPriceBase,
-                            _workContext.WorkingCurrency);
+                        price = _currencyService.ConvertFromPrimaryStoreCurrency(oldPriceBase, _workContext.WorkingCurrency);
+                        priceWithDiscount = _currencyService.ConvertFromPrimaryStoreCurrency(finalPriceWithDiscountBase, _workContext.WorkingCurrency);
 
-                        var priceWithDiscountBase = _taxService.GetProductPrice(product,
-                            _priceCalculationService.GetFinalPrice(product, _workContext.CurrentCustomer), out taxRate);
-                        var finalPriceWithDiscount =
-                            _currencyService.ConvertFromPrimaryStoreCurrency(priceWithDiscountBase,
-                                _workContext.WorkingCurrency);
-
-                        price = oldPrice;
-                        if (oldPrice == 0)
-                            price = finalPriceWithDiscount;
-
-                        if (price != finalPriceWithDiscount)
-                            priceWithDiscount = finalPriceWithDiscount;
+                        if (price == 0)
+                        {
+                            price = priceWithDiscount;
+                            priceWithDiscount = 0;
+                        }
                     }
                 }
             }
@@ -483,7 +479,7 @@ namespace Nop.Plugin.Widgets.Retargeting
             }
         }
 
-        public bool IsProductCombinationInStock(Product product, string attributeXml, 
+        public bool IsProductCombinationInStock(Product product, string attributeXml,
             out string variationCode, out Dictionary<string, object> variationDetails)
         {
             variationCode = "";

@@ -166,6 +166,10 @@
                 <div class="form-group">
                     <div class="col-md-9 col-md-offset-3">
                         <input type="submit" name="save" class="btn bg-blue" value="@T("Admin.Common.Save")"/>
+                        <button type="submit" name="reset-settings" id="reset-settings" class="btn bg-aqua pull-right">
+                            @T("Plugins.Widgets.Retargeting.ResetSettings")
+                        </button>
+                        @Html.ActionConfirmation("reset-settings")
                     </div>
                 </div>
             </div>

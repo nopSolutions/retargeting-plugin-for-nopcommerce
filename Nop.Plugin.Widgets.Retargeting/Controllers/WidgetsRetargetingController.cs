@@ -237,6 +237,48 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             return Configure();
         }
 
+        [HttpPost, ActionName("Configure")]
+        [FormValueRequired("reset-settings")]
+        public ActionResult ResetSettings()
+        {
+            //load settings for a chosen store scope
+            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var retargetingSettings = _settingService.LoadSetting<RetargetingSettings>(storeScope);
+
+            //save settings
+            retargetingSettings.UseHttpPostInsteadOfAjaxInAddToCart = false;
+            retargetingSettings.AddToCartButtonIdDetailsPrefix = "add-to-cart-button-";
+            retargetingSettings.ProductPriceLabelDetailsSelector = ".prices";
+            retargetingSettings.AddToWishlistButtonIdDetailsPrefix = "add-to-wishlist-button-";
+            retargetingSettings.HelpTopicSystemNames = "ShippingInfo,PrivacyInfo,ConditionsOfUse,AboutUs";
+            retargetingSettings.AddToWishlistCatalogButtonSelector = ".add-to-wishlist-button";
+            retargetingSettings.ProductReviewAddedResultSelector = "div.result";
+            retargetingSettings.AddToCartCatalogButtonSelector = ".product-box-add-to-cart-button";
+            retargetingSettings.ProductBoxSelector = ".product-item";
+            retargetingSettings.ProductMainPictureIdDetailsPrefix = "main-product-img-lightbox-anchor-";
+
+            /* We do not clear cache after each setting update.
+             * This behavior can increase performance because cached settings will not be cleared 
+             * and loaded from database after each update */
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.UseHttpPostInsteadOfAjaxInAddToCart, false, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToCartButtonIdDetailsPrefix, false, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductPriceLabelDetailsSelector, false, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToWishlistButtonIdDetailsPrefix, false, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.HelpTopicSystemNames, false, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToWishlistCatalogButtonSelector, false, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductReviewAddedResultSelector, false, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToCartCatalogButtonSelector, false, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductBoxSelector, false, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductMainPictureIdDetailsPrefix, false, storeScope, false);
+
+            //now clear settings cache
+            _settingService.ClearCache();
+
+            SuccessNotification(_localizationService.GetResource("Plugins.Widgets.Retargeting.SettingsReset"));
+
+            return Configure();
+        }
+
         [ChildActionOnly]
         public ActionResult PublicInfo(string widgetZone, object additionalData = null)
         {

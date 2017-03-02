@@ -250,7 +250,7 @@
         @foreach (var item in Model.CartItemsToDelete)
         {
             <text>
-        removeFromCart('@item.Key', '@item.Value["quantity"]', '@(Html.Raw(item.Value["variation"]))');
+                removeFromCart('@item.Value["productId"]', '@item.Value["quantity"]', '@(Html.Raw(item.Value["variation"]))');
             </text>
         }
 

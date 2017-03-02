@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Web;
 using System.Web.Script.Serialization;
 using Newtonsoft.Json;
@@ -27,10 +28,14 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
         private readonly HttpContextBase _httpContext;
         private readonly IPluginFinder _pluginFinder;
         private readonly IProductService _productService;
+        private readonly IOrderService _orderService;
+        private readonly IWorkContext _workContext;
+        private readonly IStoreContext _storeContext;
 
         public CustomShoppingCartService(
             HttpContextBase httpContext,
             IPluginFinder pluginFinder,
+            IOrderService orderService,
             IRepository<ShoppingCartItem> sciRepository,
             IWorkContext workContext,
             IStoreContext storeContext,
@@ -56,6 +61,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             _httpContext = httpContext;
             _pluginFinder = pluginFinder;
             _productService = productService;
+            _orderService = orderService;
+            _workContext = workContext;
+            _storeContext = storeContext;
         }
 
         public override IList<string> AddToCart(Customer customer, Product product, ShoppingCartType shoppingCartType, int storeId,
@@ -138,11 +146,22 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                         details = variationDetails
                     };
 
-                shoppingCartItemsToDelete.Add(shoppingCartItem.ProductId, new Dictionary<string, string>()
+                var order = _orderService.SearchOrders(storeId: _storeContext.CurrentStore.Id,
+                customerId: _workContext.CurrentCustomer.Id, pageSize: 1)
+                    .FirstOrDefault();
+
+                if (!(order != null
+                      && order.CreatedOnUtc > DateTime.UtcNow.AddMinutes(-1)
+                      && order.OrderItems.Any(item => item.ProductId == shoppingCartItem.ProductId)))
                 {
-                    {"quantity", shoppingCartItem.Quantity.ToString()},
-                    {"variation",  new JavaScriptSerializer().Serialize(variation)}
-                });
+                    if (!shoppingCartItemsToDelete.ContainsKey(shoppingCartItem.Id))
+                        shoppingCartItemsToDelete.Add(shoppingCartItem.Id, new Dictionary<string, string>
+                        {
+                            {"productId", shoppingCartItem.ProductId.ToString()},
+                            {"quantity", shoppingCartItem.Quantity.ToString()},
+                            {"variation", new JavaScriptSerializer().Serialize(variation)}
+                        });
+                }
 
                 _httpContext.Session["ra_shoppingCartItemsToDelete"] = shoppingCartItemsToDelete;
             }
