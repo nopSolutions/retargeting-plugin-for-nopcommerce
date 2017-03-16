@@ -847,10 +847,71 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                     if (warnings.Count != 0)
                         continue;
 
-                    var inStock = true;
-                    var existingCombination = _productAttributeParser.FindProductAttributeCombination(product, attributeCombinationXml);
-                    if (existingCombination != null)
-                        inStock = existingCombination.StockQuantity > 0;
+                    var inStock = false;
+
+                    switch (product.ManageInventoryMethod)
+                    {
+                        case ManageInventoryMethod.ManageStock:
+                            {
+                                #region Manage stock
+
+                                if (!product.DisplayStockAvailability)
+                                    inStock = true;
+
+                                var stockQuantity = product.GetTotalStockQuantity();
+                                if (stockQuantity > 0)
+                                    inStock = true;
+                                else
+                                    //out of stock
+                                    switch (product.BackorderMode)
+                                    {
+                                        case BackorderMode.AllowQtyBelow0:
+                                            inStock = true;
+                                            break;
+                                        case BackorderMode.AllowQtyBelow0AndNotifyCustomer:
+                                            inStock = true;
+                                            break;
+                                        case BackorderMode.NoBackorders:
+                                        default:
+                                            break;
+                                    }
+
+                                #endregion
+                            }
+                            break;
+
+                        case ManageInventoryMethod.ManageStockByAttributes:
+                            {
+                                #region Manage stock by attributes
+
+                                if (!product.DisplayStockAvailability)
+                                    inStock = true;
+
+                                var combination = _productAttributeParser.FindProductAttributeCombination(product, attributeCombinationXml);
+                                if (combination != null)
+                                {
+                                    //combination exists
+                                    var stockQuantity = combination.StockQuantity;
+                                    if (stockQuantity > 0)
+                                        inStock = true;
+                                    else if (combination.AllowOutOfStockOrders)
+                                        inStock = true;
+                                }
+                                else
+                                {
+                                    //no combination configured
+                                    if (!product.AllowAddingOnlyExistingAttributeCombinations)
+                                        inStock = true;
+                                }
+
+                                #endregion
+                            }
+                            break;
+                        case ManageInventoryMethod.DontManageStock:
+                        default:
+                            inStock = true;
+                            break;
+                    }
 
                     var varCode = plugin.GetCombinationCode(attributeCombinationXml);
                     if (!attributes.ContainsKey(varCode))
