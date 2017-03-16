@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Script.Serialization;
-using Newtonsoft.Json;
 using Nop.Core;
 using Nop.Core.Data;
 using Nop.Core.Domain.Catalog;
@@ -73,39 +72,50 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             var warnings = base.AddToCart(customer, product, shoppingCartType, storeId, attributesXml,
                 customerEnteredPrice, rentalStartDate, rentalEndDate, quantity, automaticallyAddRequiredProductsIfEnabled);
 
-            if (warnings.Count == 0)
+            if (_httpContext.Session != null)
             {
-                var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
-                if (pluginDescriptor == null)
-                    throw new Exception("Cannot load the plugin");
+                var shoppingMigrationInProcess = _httpContext.Session != null &&
+                                                 _httpContext.Session["ra_shoppingMigrationInProcess"] != null
+                    ? (bool)_httpContext.Session["ra_shoppingMigrationInProcess"]
+                    : false;
 
-                var plugin = pluginDescriptor.Instance() as RetargetingPlugin;
-                if (plugin == null)
-                    throw new Exception("Cannot load the plugin");
-
-                object variation = false;
-                string variationCode;
-                Dictionary<string, object> variationDetails;
-
-                var stock = plugin.IsProductCombinationInStock(product, attributesXml, out variationCode, out variationDetails);
-                if (!string.IsNullOrEmpty(variationCode))
-                    variation = new
-                    {
-                        code = variationCode,
-                        stock = stock,
-                        details = variationDetails
-                    };
-
-                var addToCartProductInfo = new
+                if (!shoppingMigrationInProcess && warnings.Count == 0)
                 {
-                    shoppingCartType = shoppingCartType,
-                    product_id = product.Id,
-                    quantity = quantity,
-                    variation = variation
-                };
+                    if (warnings.Count == 0)
+                    {
+                        var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
+                        if (pluginDescriptor == null)
+                            throw new Exception("Cannot load the plugin");
 
-                if (_httpContext.Session != null)
-                    _httpContext.Session["ra_addToCartProductInfo"] = addToCartProductInfo;
+                        var plugin = pluginDescriptor.Instance() as RetargetingPlugin;
+                        if (plugin == null)
+                            throw new Exception("Cannot load the plugin");
+
+                        object variation = false;
+                        string variationCode;
+                        Dictionary<string, object> variationDetails;
+
+                        var stock = plugin.IsProductCombinationInStock(product, attributesXml, out variationCode, out variationDetails);
+                        if (!string.IsNullOrEmpty(variationCode))
+                            variation = new
+                            {
+                                code = variationCode,
+                                stock = stock,
+                                details = variationDetails
+                            };
+
+                        var addToCartProductInfo = new
+                        {
+                            shoppingCartType = shoppingCartType,
+                            product_id = product.Id,
+                            quantity = quantity,
+                            variation = variation
+                        };
+
+                        if (_httpContext.Session != null)
+                            _httpContext.Session["ra_addToCartProductInfo"] = addToCartProductInfo;
+                    }
+                }
             }
 
             return warnings;
@@ -116,7 +126,12 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
         {
             base.DeleteShoppingCartItem(shoppingCartItem, resetCheckoutData, ensureOnlyActiveCheckoutAttributes);
 
-            if (shoppingCartItem.ShoppingCartType == ShoppingCartType.ShoppingCart && _httpContext.Session != null)
+            var shoppingMigrationInProcess = _httpContext.Session != null &&
+                                             _httpContext.Session["ra_shoppingMigrationInProcess"] != null
+                ? (bool)_httpContext.Session["ra_shoppingMigrationInProcess"]
+                : false;
+
+            if (!shoppingMigrationInProcess && shoppingCartItem.ShoppingCartType == ShoppingCartType.ShoppingCart)
             {
                 var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
                 if (pluginDescriptor == null)
@@ -127,8 +142,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                     throw new Exception("Cannot load the plugin");
 
                 var shoppingCartItemsToDelete =
-                    _httpContext.Session["ra_shoppingCartItemsToDelete"] as Dictionary<int, Dictionary<string, string>> ??
-                    new Dictionary<int, Dictionary<string, string>>();
+                    _httpContext.Session != null &&
+                    _httpContext.Session["ra_shoppingCartItemsToDelete"] is Dictionary<int, Dictionary<string, string>>
+                        ? (Dictionary<int, Dictionary<string, string>>) _httpContext.Session["ra_shoppingCartItemsToDelete"]
+                        : new Dictionary<int, Dictionary<string, string>>();
 
                 object variation = false;
                 string variationCode;
@@ -147,7 +164,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                     };
 
                 var order = _orderService.SearchOrders(storeId: _storeContext.CurrentStore.Id,
-                customerId: _workContext.CurrentCustomer.Id, pageSize: 1)
+                    customerId: _workContext.CurrentCustomer.Id, pageSize: 1)
                     .FirstOrDefault();
 
                 if (!(order != null
@@ -156,15 +173,27 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                 {
                     if (!shoppingCartItemsToDelete.ContainsKey(shoppingCartItem.Id))
                         shoppingCartItemsToDelete.Add(shoppingCartItem.Id, new Dictionary<string, string>
-                        {
-                            {"productId", shoppingCartItem.ProductId.ToString()},
-                            {"quantity", shoppingCartItem.Quantity.ToString()},
-                            {"variation", new JavaScriptSerializer().Serialize(variation)}
-                        });
+                                    {
+                                        {"productId", shoppingCartItem.ProductId.ToString()},
+                                        {"quantity", shoppingCartItem.Quantity.ToString()},
+                                        {"variation", new JavaScriptSerializer().Serialize(variation)}
+                                    });
                 }
 
-                _httpContext.Session["ra_shoppingCartItemsToDelete"] = shoppingCartItemsToDelete;
+                if (_httpContext.Session != null)
+                    _httpContext.Session["ra_shoppingCartItemsToDelete"] = shoppingCartItemsToDelete;
             }
+        }
+
+        public override void MigrateShoppingCart(Customer fromCustomer, Customer toCustomer, bool includeCouponCodes)
+        {
+            if (_httpContext.Session != null)
+                _httpContext.Session["ra_shoppingMigrationInProcess"] = true;
+
+            base.MigrateShoppingCart(fromCustomer, toCustomer, includeCouponCodes);
+
+            if (_httpContext.Session != null)
+                _httpContext.Session["ra_shoppingMigrationInProcess"] = false;
         }
     }
 }
