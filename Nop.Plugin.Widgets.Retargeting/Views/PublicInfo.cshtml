@@ -240,8 +240,8 @@
                         }
                     });
             }
-        }                    
-                
+        }
+
                 </text>
             }
         }
@@ -317,7 +317,7 @@
             "city": "@Model.OrderModel.City",
             "address": "@Model.OrderModel.Address",
             "birthday": "@Model.OrderModel.Birthday",
-            "discount_code": "@Model.OrderModel.DiscountCode",
+            "discount_code": JSON.parse("[" + "@Model.OrderModel.DiscountCode" + "]"),
             "discount": "@Model.OrderModel.Discount",
             "shipping": "@Model.OrderModel.Shipping",
             "rebates": "@Model.OrderModel.Rebates",
@@ -379,7 +379,7 @@
     function removeFromCart(productId, productQty, variation) {
         _ra.removeFromCartInfo = {
             "product_id": productId,
-            "quantity": productQty, 
+            "quantity": productQty,
             "variation": variation
             };
 

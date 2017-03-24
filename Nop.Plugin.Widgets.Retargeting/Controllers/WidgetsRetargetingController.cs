@@ -154,7 +154,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 model.ProductMainPictureIdDetailsPrefix_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.ProductMainPictureIdDetailsPrefix, storeScope);
             }
 
-            return View("~/Plugins/Widgets.Retargeting/Views/WidgetsRetargeting/Configure.cshtml", model);
+            return View("~/Plugins/Widgets.Retargeting/Views/Configure.cshtml", model);
         }
 
         [HttpPost]
@@ -578,7 +578,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 _httpContext.Session["ra_addToCartProductInfo"] = null;
             }
 
-            return View("~/Plugins/Widgets.Retargeting/Views/WidgetsRetargeting/PublicInfo.cshtml", model);
+            return View("~/Plugins/Widgets.Retargeting/Views/PublicInfo.cshtml", model);
         }
 
         [NopHttpsRequirement(SslRequirement.No)]

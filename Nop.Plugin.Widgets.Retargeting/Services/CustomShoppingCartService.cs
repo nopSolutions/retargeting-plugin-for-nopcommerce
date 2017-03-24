@@ -18,6 +18,7 @@ using Nop.Services.Helpers;
 using Nop.Services.Localization;
 using Nop.Services.Orders;
 using Nop.Services.Security;
+using Nop.Services.Shipping.Date;
 using Nop.Services.Stores;
 
 namespace Nop.Plugin.Widgets.Retargeting.Services
@@ -50,12 +51,14 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             IEventPublisher eventPublisher,
             IPermissionService permissionService,
             IAclService aclService,
+            IDateRangeService dateRangeService,
             IStoreMappingService storeMappingService,
             IGenericAttributeService genericAttributeService,
             IProductAttributeService productAttributeService,
             IDateTimeHelper dateTimeHelper) : base(sciRepository, workContext, storeContext, currencyService, productService, localizationService,
               productAttributeParser, checkoutAttributeService, checkoutAttributeParser, priceFormatter, customerService, shoppingCartSettings,
-              eventPublisher, permissionService, aclService, storeMappingService, genericAttributeService, productAttributeService, dateTimeHelper)
+              eventPublisher, permissionService, aclService, dateRangeService, storeMappingService, genericAttributeService, 
+              productAttributeService, dateTimeHelper)
         {
             _httpContext = httpContext;
             _pluginFinder = pluginFinder;
