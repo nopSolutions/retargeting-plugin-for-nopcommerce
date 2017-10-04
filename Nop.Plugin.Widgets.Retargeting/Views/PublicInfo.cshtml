@@ -329,13 +329,13 @@
             foreach (var orderItem in Model.OrderModel.OrderItems)
             {
                 <text>
-        saveOrderProducts.push({
-            "id": "@orderItem.Id",
-            "quantity": "@orderItem.Quantity",
-            "price": "@orderItem.Price",
-            "variation_code": "@orderItem.VariationCode",
-        });
-        </text>
+                    var productObj@(orderItem.Id) = {};
+                    productObj@(orderItem.Id)["id"] = "@orderItem.Id";
+                    productObj@(orderItem.Id)["quantity"] = "@orderItem.Quantity";
+                    productObj@(orderItem.Id)["price"] = "@orderItem.Price";
+                    productObj@(orderItem.Id)["variation_code"] = "@orderItem.VariationCode";
+                    saveOrderProducts.push(productObj@(orderItem.Id));
+                </text>
             }
 
             <text>
