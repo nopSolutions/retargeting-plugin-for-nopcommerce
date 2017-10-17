@@ -448,7 +448,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                     {
                         Id = order.Id,
                         City = HttpUtility.JavaScriptStringEncode(order.BillingAddress.City),
-                        Discount = order.OrderDiscount,
+                        Discount = order.OrderDiscount.ToString("0.00", CultureInfo.InvariantCulture),
                         Email = order.BillingAddress.Email,
                         FirstName = HttpUtility.JavaScriptStringEncode(order.BillingAddress.FirstName),
                         LastName = HttpUtility.JavaScriptStringEncode(order.BillingAddress.LastName),
@@ -462,9 +462,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                                                                order.BillingAddress.Address2),
                         Shipping =
                             order.CustomerTaxDisplayType == TaxDisplayType.IncludingTax
-                                ? order.OrderShippingInclTax
-                                : order.OrderShippingExclTax,
-                        Total = order.OrderTotal,
+                                ? order.OrderShippingInclTax.ToString("0.00", CultureInfo.InvariantCulture)
+                                : order.OrderShippingExclTax.ToString("0.00", CultureInfo.InvariantCulture),
+                        Total = order.OrderTotal.ToString("0.00", CultureInfo.InvariantCulture),
                         Rebates = 0,
                         Fees = 0
                     };
@@ -489,13 +489,14 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                     //order items
                     foreach (var orderItem in order.OrderItems)
                     {
+                        var itemPrice = order.CustomerTaxDisplayType == TaxDisplayType.IncludingTax
+                                            ? orderItem.UnitPriceInclTax
+                                            : orderItem.UnitPriceExclTax;
                         var item = new OrderItem()
                         {
                             Id = orderItem.ProductId,
                             Quantity = orderItem.Quantity,
-                            Price = order.CustomerTaxDisplayType == TaxDisplayType.IncludingTax
-                                ? orderItem.UnitPriceInclTax
-                                : orderItem.UnitPriceExclTax,
+                            Price = itemPrice.ToString("0.00", CultureInfo.InvariantCulture)
                         };
 
                         var values = _productAttributeParser.ParseProductAttributeValues(orderItem.AttributesXml);
@@ -702,8 +703,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 if (price == 0)
                     price = 1;
 
-                productInfo.Add("price", price.ToString(new CultureInfo("en-US", false).NumberFormat));
-                productInfo.Add("promo", priceWithDiscount.ToString(new CultureInfo("en-US", false).NumberFormat));
+                productInfo.Add("price", price.ToString("0.00", CultureInfo.InvariantCulture));
+                productInfo.Add("promo", priceWithDiscount.ToString("0.00", CultureInfo.InvariantCulture));
 
                 #endregion
 
