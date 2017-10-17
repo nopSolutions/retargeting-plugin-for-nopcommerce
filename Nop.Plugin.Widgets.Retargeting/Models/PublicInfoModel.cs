@@ -142,15 +142,15 @@ namespace Nop.Plugin.Widgets.Retargeting.Models
 
         public string DiscountCode { get; set; }
 
-        public decimal Discount { get; set; }
+        public string Discount { get; set; }
 
-        public decimal Shipping { get; set; }
+        public string Shipping { get; set; }
 
         public int Rebates { get; set; }
 
         public int Fees { get; set; }
 
-        public decimal Total { get; set; }
+        public string Total { get; set; }
 
         public List<OrderItem> OrderItems { get; set; }
     }
@@ -161,7 +161,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Models
 
         public int Quantity { get; set; }
 
-        public decimal Price { get; set; }
+        public string Price { get; set; }
 
         public string VariationCode { get; set; }
     }
