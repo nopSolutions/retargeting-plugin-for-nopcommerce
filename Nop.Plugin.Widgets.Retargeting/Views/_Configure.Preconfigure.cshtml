@@ -1,0 +1,26 @@
+﻿@model Nop.Plugin.Widgets.Retargeting.Models.ConfigurationModel
+
+<div class="panel-group">
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <div class="form-group">
+                <div class="col-md-12">
+                    <h4>This tab allows you to preconfigure the store for correct working:</h4>
+                    <ul class="margin-bottom">
+                        <li>Set "Display cart after adding product" to false</li>
+                        <li>Set "Display wishlist after adding product" to false</li>
+                        <li>Set "Default picture zoom enabled" to true</li>
+                        <li>Enable "Order completed" page</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-12">
+                    <button type="submit" name="preconfigure" class="btn bg-blue">
+                        @T("Plugins.Widgets.Retargeting.PreconfigureButton")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

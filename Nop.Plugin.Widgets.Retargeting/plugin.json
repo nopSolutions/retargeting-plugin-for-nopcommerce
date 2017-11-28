@@ -1,0 +1,11 @@
+﻿{
+  "Group": "Widgets",
+  "FriendlyName": "Retargeting",
+  "SystemName": "Widgets.Retargeting",
+  "Version": "1.00",
+  "SupportedVersions": [ "4.00" ],
+  "Author": "nopCommerce team",
+  "DisplayOrder": 1,
+  "FileName": "Nop.Plugin.Widgets.Retargeting.dll",
+  "Description": "This plugin enables integration with Retargeting"
+}

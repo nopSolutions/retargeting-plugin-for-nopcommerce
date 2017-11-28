@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Net.Http;
-using System.Text;
-using System.Web;
-using System.Web.Routing;
-using Nop.Core;
+﻿using Nop.Core;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Media;
 using Nop.Core.Domain.Orders;
@@ -18,10 +10,17 @@ using Nop.Services.Configuration;
 using Nop.Services.Directory;
 using Nop.Services.Discounts;
 using Nop.Services.Localization;
-using Nop.Services.Logging;
 using Nop.Services.Orders;
 using Nop.Services.Security;
 using Nop.Services.Tax;
+using Nop.Services.Logging;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Net.Http;
+using System.Net;
 
 namespace Nop.Plugin.Widgets.Retargeting
 {
@@ -39,6 +38,7 @@ namespace Nop.Plugin.Widgets.Retargeting
         private readonly IPriceCalculationService _priceCalculationService;
 
         private readonly ILogger _logger;
+        private readonly IWebHelper _webHelper;
         private readonly IWorkContext _workContext;
         private readonly IStoreContext _storeContext;
         private readonly IProductAttributeParser _productAttributeParser;
@@ -60,6 +60,7 @@ namespace Nop.Plugin.Widgets.Retargeting
             IPriceCalculationService priceCalculationService,
 
             ILogger logger,
+            IWebHelper webHelper,
             IWorkContext workContext,
             IStoreContext storeContext,
             IProductAttributeParser productAttributeParser,
@@ -80,6 +81,7 @@ namespace Nop.Plugin.Widgets.Retargeting
             _priceCalculationService = priceCalculationService;
 
             _logger = logger;
+            _webHelper = webHelper;
             _workContext = workContext;
             _storeContext = storeContext;
             _productAttributeParser = productAttributeParser;
@@ -99,36 +101,21 @@ namespace Nop.Plugin.Widgets.Retargeting
         }
 
         /// <summary>
-        /// Gets a route for provider configuration
+        /// Gets a configuration page URL
         /// </summary>
-        /// <param name="actionName">Action name</param>
-        /// <param name="controllerName">Controller name</param>
-        /// <param name="routeValues">Route values</param>
-        public void GetConfigurationRoute(out string actionName, out string controllerName, out RouteValueDictionary routeValues)
+        public override string GetConfigurationPageUrl()
         {
-            actionName = "Configure";
-            controllerName = "WidgetsRetargeting";
-            routeValues = new RouteValueDictionary { { "Namespaces", "Nop.Plugin.Widgets.Retargeting.Controllers" }, { "area", null } };
+            return _webHelper.GetStoreLocation() + "Admin/WidgetsRetargeting/Configure";
         }
 
         /// <summary>
-        /// Gets a route for displaying widget
+        /// Gets a view component for displaying plugin in public store
         /// </summary>
-        /// <param name="widgetZone">Widget zone where it's displayed</param>
-        /// <param name="actionName">Action name</param>
-        /// <param name="controllerName">Controller name</param>
-        /// <param name="routeValues">Route values</param>
-        public void GetDisplayWidgetRoute(string widgetZone, out string actionName, out string controllerName,
-            out RouteValueDictionary routeValues)
+        /// <param name="widgetZone">Name of the widget zone</param>
+        /// <param name="viewComponentName">View component name</param>
+        public void GetPublicViewComponent(string widgetZone, out string viewComponentName)
         {
-            actionName = "PublicInfo";
-            controllerName = "WidgetsRetargeting";
-            routeValues = new RouteValueDictionary
-            {
-                {"Namespaces", "Nop.Plugin.Widgets.Retargeting.Controllers"},
-                {"area", null},
-                {"widgetZone", widgetZone}
-            };
+            viewComponentName = "WidgetsRetargeting";
         }
 
         /// <summary>
@@ -411,15 +398,15 @@ namespace Nop.Plugin.Widgets.Retargeting
 
                     sb.AppendFormat("api_key={0}&", retargetingSettings.RestApiKey);
                     sb.AppendFormat("0[order_no]={0}&", order.Id);
-                    sb.AppendFormat("0[lastname]={0}&", HttpUtility.UrlEncode(order.BillingAddress.LastName));
-                    sb.AppendFormat("0[firstname]={0}&", HttpUtility.UrlEncode(order.BillingAddress.FirstName));
-                    sb.AppendFormat("0[email]={0}&", HttpUtility.UrlEncode(order.BillingAddress.Email));
-                    sb.AppendFormat("0[phone]={0}&", HttpUtility.UrlEncode(order.BillingAddress.PhoneNumber));
+                    sb.AppendFormat("0[lastname]={0}&", WebUtility.UrlEncode(order.BillingAddress.LastName));
+                    sb.AppendFormat("0[firstname]={0}&", WebUtility.UrlEncode(order.BillingAddress.FirstName));
+                    sb.AppendFormat("0[email]={0}&", WebUtility.UrlEncode(order.BillingAddress.Email));
+                    sb.AppendFormat("0[phone]={0}&", WebUtility.UrlEncode(order.BillingAddress.PhoneNumber));
                     sb.AppendFormat("0[state]={0}&", order.BillingAddress.StateProvince != null
-                                                    ? HttpUtility.UrlEncode(order.BillingAddress.StateProvince.Name)
+                                                    ? WebUtility.UrlEncode(order.BillingAddress.StateProvince.Name)
                                                     : "");
-                    sb.AppendFormat("0[city]={0}&", HttpUtility.UrlEncode(order.BillingAddress.City));
-                    sb.AppendFormat("0[adress]={0}&", HttpUtility.UrlEncode(order.BillingAddress.Address1 + " " +
+                    sb.AppendFormat("0[city]={0}&", WebUtility.UrlEncode(order.BillingAddress.City));
+                    sb.AppendFormat("0[adress]={0}&", WebUtility.UrlEncode(order.BillingAddress.Address1 + " " +
                                                                order.BillingAddress.Address2));
                     sb.AppendFormat("0[discount]={0}&", order.OrderDiscount.ToString("0.00", CultureInfo.InvariantCulture));
                     sb.AppendFormat("0[shipping]={0}&", order.CustomerTaxDisplayType == TaxDisplayType.IncludingTax

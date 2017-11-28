@@ -1,4 +1,4 @@
-﻿@using System.Web.Script.Serialization
+﻿@using Newtonsoft.Json;
 @using Nop.Core.Domain.Orders
 @using Nop.Plugin.Widgets.Retargeting.Models
 @model Nop.Plugin.Widgets.Retargeting.Models.PublicInfoModel
@@ -40,14 +40,15 @@
         $(document).ajaxComplete(function (event, xhr) {
             if (xhr) {
                 var json;
+                var addToCartProductInfo;
 
                 try {
                     json = JSON.parse(xhr.responseText);
+                    addToCartProductInfo = JSON.parse(json.ra_addToCartProductInfo);
                 } catch (e) {
                     return;
                 }
 
-                var addToCartProductInfo = json.ra_addToCartProductInfo;
                 if (!addToCartProductInfo) {
                     return;
                 }
@@ -206,9 +207,9 @@
             if (Model.AddToCartProductInfo != null)
             {
                 <text>
-        var addToCartProductInfo = JSON.parse('@(Html.Raw(new JavaScriptSerializer().Serialize(Model.AddToCartProductInfo)))');
+        var addToCartProductInfo = JSON.parse('@(Html.Raw(JsonConvert.SerializeObject(Model.AddToCartProductInfo)))');
 
-        if (addToCartProductInfo.shoppingCartType == "@((int) ShoppingCartType.ShoppingCart)") {
+        if (addToCartProductInfo.shoppingCartType == "@((int)ShoppingCartType.ShoppingCart)") {
                 //get product info
                 $.ajax({
                     cache: false,

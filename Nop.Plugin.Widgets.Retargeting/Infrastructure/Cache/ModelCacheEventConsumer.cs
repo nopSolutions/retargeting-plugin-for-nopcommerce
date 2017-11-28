@@ -2,7 +2,6 @@
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Localization;
 using Nop.Core.Events;
-using Nop.Core.Infrastructure;
 using Nop.Services.Events;
 
 namespace Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache
@@ -47,12 +46,11 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache
         public const string PRODUCT_CATEGORIES_MODEL_KEY = "Nop.plugins.widgets.retargeting.product.categories-{0}-{1}-{2}-{3}";
         public const string PRODUCT_CATEGORIES_PATTERN_KEY = "Nop.plugins.widgets.retargeting.categories.manufacturers";
 
-        private readonly ICacheManager _cacheManager;
+        private readonly IStaticCacheManager _cacheManager;
 
-        public ModelCacheEventConsumer()
+        public ModelCacheEventConsumer(IStaticCacheManager cacheManager)
         {
-            //TODO inject static cache manager using constructor
-            this._cacheManager = EngineContext.Current.ContainerManager.Resolve<ICacheManager>("nop_cache_static");
+            this._cacheManager = cacheManager;
         }
 
         //languages

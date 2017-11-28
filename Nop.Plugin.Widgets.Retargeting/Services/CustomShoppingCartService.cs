@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Web;
-using System.Web.Script.Serialization;
 using Nop.Core;
 using Nop.Core.Data;
 using Nop.Core.Domain.Catalog;
@@ -20,12 +18,15 @@ using Nop.Services.Orders;
 using Nop.Services.Security;
 using Nop.Services.Shipping.Date;
 using Nop.Services.Stores;
+using Microsoft.AspNetCore.Http;
+using Nop.Core.Http.Extensions;
+using Newtonsoft.Json;
 
 namespace Nop.Plugin.Widgets.Retargeting.Services
 {
     public class CustomShoppingCartService : ShoppingCartService
     {
-        private readonly HttpContextBase _httpContext;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IPluginFinder _pluginFinder;
         private readonly IProductService _productService;
         private readonly IOrderService _orderService;
@@ -33,7 +34,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
         private readonly IStoreContext _storeContext;
 
         public CustomShoppingCartService(
-            HttpContextBase httpContext,
+            IHttpContextAccessor httpContextAccessor,
             IPluginFinder pluginFinder,
             IOrderService orderService,
             IRepository<ShoppingCartItem> sciRepository,
@@ -47,6 +48,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             ICheckoutAttributeParser checkoutAttributeParser,
             IPriceFormatter priceFormatter,
             ICustomerService customerService,
+            OrderSettings orderSettings,
             ShoppingCartSettings shoppingCartSettings,
             IEventPublisher eventPublisher,
             IPermissionService permissionService,
@@ -56,11 +58,11 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             IGenericAttributeService genericAttributeService,
             IProductAttributeService productAttributeService,
             IDateTimeHelper dateTimeHelper) : base(sciRepository, workContext, storeContext, currencyService, productService, localizationService,
-              productAttributeParser, checkoutAttributeService, checkoutAttributeParser, priceFormatter, customerService, shoppingCartSettings,
+              productAttributeParser, checkoutAttributeService, checkoutAttributeParser, priceFormatter, customerService, orderSettings, shoppingCartSettings,
               eventPublisher, permissionService, aclService, dateRangeService, storeMappingService, genericAttributeService, 
               productAttributeService, dateTimeHelper)
         {
-            _httpContext = httpContext;
+            _httpContextAccessor = httpContextAccessor;
             _pluginFinder = pluginFinder;
             _productService = productService;
             _orderService = orderService;
@@ -75,14 +77,11 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             var warnings = base.AddToCart(customer, product, shoppingCartType, storeId, attributesXml,
                 customerEnteredPrice, rentalStartDate, rentalEndDate, quantity, automaticallyAddRequiredProductsIfEnabled);
 
-            if (_httpContext.Session != null)
+            if (_httpContextAccessor.HttpContext?.Session != null)
             {
-                var shoppingMigrationInProcess = _httpContext.Session != null &&
-                                                 _httpContext.Session["ra_shoppingMigrationInProcess"] != null
-                    ? (bool)_httpContext.Session["ra_shoppingMigrationInProcess"]
-                    : false;
+                var shoppingMigrationInProcess = _httpContextAccessor.HttpContext?.Session.Get<bool>("ra_shoppingMigrationInProcess");
 
-                if (!shoppingMigrationInProcess && warnings.Count == 0)
+                if (shoppingMigrationInProcess.HasValue && !shoppingMigrationInProcess.Value && warnings.Count == 0)
                 {
                     if (warnings.Count == 0)
                     {
@@ -115,8 +114,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                             variation = variation
                         };
 
-                        if (_httpContext.Session != null)
-                            _httpContext.Session["ra_addToCartProductInfo"] = addToCartProductInfo;
+                        _httpContextAccessor.HttpContext?.Session.Set("ra_addToCartProductInfo", addToCartProductInfo);
                     }
                 }
             }
@@ -129,12 +127,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
         {
             base.DeleteShoppingCartItem(shoppingCartItem, resetCheckoutData, ensureOnlyActiveCheckoutAttributes);
 
-            var shoppingMigrationInProcess = _httpContext.Session != null &&
-                                             _httpContext.Session["ra_shoppingMigrationInProcess"] != null
-                ? (bool)_httpContext.Session["ra_shoppingMigrationInProcess"]
-                : false;
+            var shoppingMigrationInProcess = _httpContextAccessor.HttpContext?.Session.Get<bool>("ra_shoppingMigrationInProcess");
 
-            if (!shoppingMigrationInProcess && shoppingCartItem.ShoppingCartType == ShoppingCartType.ShoppingCart)
+            if (shoppingMigrationInProcess.HasValue && !shoppingMigrationInProcess.Value && shoppingCartItem.ShoppingCartType == ShoppingCartType.ShoppingCart)
             {
                 var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
                 if (pluginDescriptor == null)
@@ -144,11 +139,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                 if (plugin == null)
                     throw new Exception("Cannot load the plugin");
 
-                var shoppingCartItemsToDelete =
-                    _httpContext.Session != null &&
-                    _httpContext.Session["ra_shoppingCartItemsToDelete"] is Dictionary<int, Dictionary<string, string>>
-                        ? (Dictionary<int, Dictionary<string, string>>) _httpContext.Session["ra_shoppingCartItemsToDelete"]
-                        : new Dictionary<int, Dictionary<string, string>>();
+                var shoppingCartItemsToDelete = _httpContextAccessor.HttpContext?.Session.Get<Dictionary<int, Dictionary<string, string>>>("ra_shoppingCartItemsToDelete");
+                if (shoppingCartItemsToDelete == null)
+                    shoppingCartItemsToDelete = new Dictionary<int, Dictionary<string, string>>();
 
                 object variation = false;
                 string variationCode;
@@ -179,24 +172,21 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                                     {
                                         {"productId", shoppingCartItem.ProductId.ToString()},
                                         {"quantity", shoppingCartItem.Quantity.ToString()},
-                                        {"variation", new JavaScriptSerializer().Serialize(variation)}
+                                        {"variation",  JsonConvert.SerializeObject(variation)}
                                     });
                 }
 
-                if (_httpContext.Session != null)
-                    _httpContext.Session["ra_shoppingCartItemsToDelete"] = shoppingCartItemsToDelete;
+                _httpContextAccessor.HttpContext?.Session?.Set("ra_shoppingCartItemsToDelete", shoppingCartItemsToDelete);
             }
         }
 
         public override void MigrateShoppingCart(Customer fromCustomer, Customer toCustomer, bool includeCouponCodes)
         {
-            if (_httpContext.Session != null)
-                _httpContext.Session["ra_shoppingMigrationInProcess"] = true;
+            _httpContextAccessor.HttpContext?.Session?.Set("ra_shoppingMigrationInProcess", true);
 
             base.MigrateShoppingCart(fromCustomer, toCustomer, includeCouponCodes);
 
-            if (_httpContext.Session != null)
-                _httpContext.Session["ra_shoppingMigrationInProcess"] = false;
+            _httpContextAccessor.HttpContext?.Session?.Set("ra_shoppingMigrationInProcess", false);
         }
     }
 }

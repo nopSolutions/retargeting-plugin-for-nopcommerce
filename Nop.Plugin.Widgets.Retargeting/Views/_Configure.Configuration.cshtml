@@ -1,0 +1,143 @@
+﻿@model Nop.Plugin.Widgets.Retargeting.Models.ConfigurationModel
+
+<div class="panel-group">
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <p>
+                <em>@T("Plugins.Widgets.Retargeting.CustomizationNote")</em>
+            </p>
+            <p>
+                <em>@T("Plugins.Widgets.Retargeting.DiscountTypeNote")</em>
+            </p>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="TrackingApiKey_OverrideForStore" asp-input="TrackingApiKey" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="TrackingApiKey" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="TrackingApiKey" />
+                    <span asp-validation-for="TrackingApiKey"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="RestApiKey_OverrideForStore" asp-input="RestApiKey" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="RestApiKey" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="RestApiKey" />
+                    <span asp-validation-for="RestApiKey"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="UseHttpPostInsteadOfAjaxInAddToCart_OverrideForStore" asp-input="UseHttpPostInsteadOfAjaxInAddToCart" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="UseHttpPostInsteadOfAjaxInAddToCart" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="UseHttpPostInsteadOfAjaxInAddToCart" />
+                    <span asp-validation-for="UseHttpPostInsteadOfAjaxInAddToCart"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="ProductBoxSelector_OverrideForStore" asp-input="ProductBoxSelector" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="ProductBoxSelector" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="ProductBoxSelector" />
+                    <span asp-validation-for="ProductBoxSelector"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="AddToCartCatalogButtonSelector_OverrideForStore" asp-input="AddToCartCatalogButtonSelector" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="AddToCartCatalogButtonSelector" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="AddToCartCatalogButtonSelector" />
+                    <span asp-validation-for="AddToCartCatalogButtonSelector"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="AddToCartButtonDetailsPrefix_OverrideForStore" asp-input="AddToCartButtonIdDetailsPrefix" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="AddToCartButtonIdDetailsPrefix" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="AddToCartButtonIdDetailsPrefix" />
+                    <span asp-validation-for="AddToCartButtonIdDetailsPrefix"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="AddToWishlistCatalogButtonSelector_OverrideForStore" asp-input="AddToWishlistCatalogButtonSelector" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="AddToWishlistCatalogButtonSelector" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="AddToWishlistCatalogButtonSelector" />
+                    <span asp-validation-for="AddToWishlistCatalogButtonSelector"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="AddToWishlistButtonIdDetailsPrefix_OverrideForStore" asp-input="AddToWishlistButtonIdDetailsPrefix" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="AddToWishlistButtonIdDetailsPrefix" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="AddToWishlistButtonIdDetailsPrefix" />
+                    <span asp-validation-for="AddToWishlistButtonIdDetailsPrefix"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="PriceLabelSelector_OverrideForStore" asp-input="ProductPriceLabelDetailsSelector" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="ProductPriceLabelDetailsSelector" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="ProductPriceLabelDetailsSelector" />
+                    <span asp-validation-for="ProductPriceLabelDetailsSelector"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="ProductMainPictureIdDetailsPrefix_OverrideForStore" asp-input="ProductMainPictureIdDetailsPrefix" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="ProductMainPictureIdDetailsPrefix" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="ProductMainPictureIdDetailsPrefix" />
+                    <span asp-validation-for="ProductMainPictureIdDetailsPrefix"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="HelpTopicSystemNames_OverrideForStore" asp-input="HelpTopicSystemNames" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="HelpTopicSystemNames" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="HelpTopicSystemNames" />
+                    <span asp-validation-for="HelpTopicSystemNames"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="ProductReviewAddedResultSelector_OverrideForStore" asp-input="ProductReviewAddedResultSelector" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="ProductReviewAddedResultSelector" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="ProductReviewAddedResultSelector" />
+                    <span asp-validation-for="ProductReviewAddedResultSelector"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-9 col-md-offset-3">
+                    <input type="submit" name="save" class="btn bg-blue" value="@T("Admin.Common.Save")" />
+                    <button type="submit" name="reset-settings" id="reset-settings" class="btn bg-aqua pull-right">
+                        @T("Plugins.Widgets.Retargeting.ResetSettings")
+                    </button>
+                    <nop-action-confirmation asp-button-id="reset-settings" />
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
