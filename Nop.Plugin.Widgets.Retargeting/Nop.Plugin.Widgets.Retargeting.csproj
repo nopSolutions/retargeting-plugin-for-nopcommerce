@@ -1,21 +1,16 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net461</TargetFramework>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
     <Copyright>Copyright © Nop Solutions, Ltd</Copyright>
     <Company>Nop Solutions, Ltd</Company>
     <Authors>Nop Solutions, Ltd</Authors>
-    <Version>1.00</Version>
-    <Description>This plugin enables integration with Retargeting</Description>
     <PackageLicenseUrl></PackageLicenseUrl>
     <PackageProjectUrl>http://www.nopcommerce.com/</PackageProjectUrl>
     <RepositoryUrl>https://github.com/nopSolutions/retargeting-plugin-for-nopcommerce</RepositoryUrl>
     <RepositoryType>Git</RepositoryType>
   </PropertyGroup>
   
- <PropertyGroup>
-   <TargetFramework>net461</TargetFramework> 
- </PropertyGroup>  
  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
    <OutputPath>..\..\Presentation\Nop.Web\Plugins\Widgets.Retargeting</OutputPath>
    <OutDir>$(OutputPath)</OutDir>

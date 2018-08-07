@@ -11,16 +11,16 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache
     /// </summary>
     public partial class ModelCacheEventConsumer :
         //languages
-        IConsumer<EntityInserted<Language>>,
-        IConsumer<EntityUpdated<Language>>,
-        IConsumer<EntityDeleted<Language>>,
+        IConsumer<EntityInsertedEvent<Language>>,
+        IConsumer<EntityUpdatedEvent<Language>>,
+        IConsumer<EntityDeletedEvent<Language>>,
         //manufacturers
-        IConsumer<EntityUpdated<Manufacturer>>,
-        IConsumer<EntityDeleted<Manufacturer>>,
+        IConsumer<EntityUpdatedEvent<Manufacturer>>,
+        IConsumer<EntityDeletedEvent<Manufacturer>>,
         //product manufacturers
-        IConsumer<EntityInserted<ProductManufacturer>>,
-        IConsumer<EntityUpdated<ProductManufacturer>>,
-        IConsumer<EntityDeleted<ProductManufacturer>>
+        IConsumer<EntityInsertedEvent<ProductManufacturer>>,
+        IConsumer<EntityUpdatedEvent<ProductManufacturer>>,
+        IConsumer<EntityDeletedEvent<ProductManufacturer>>
     {
         /// <summary>
         /// Key for ProductManufacturers model caching
@@ -54,39 +54,39 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache
         }
 
         //languages
-        public void HandleEvent(EntityInserted<Language> eventMessage)
+        public void HandleEvent(EntityInsertedEvent<Language> eventMessage)
         {
             _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
-        public void HandleEvent(EntityUpdated<Language> eventMessage)
+        public void HandleEvent(EntityUpdatedEvent<Language> eventMessage)
         {
             _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
-        public void HandleEvent(EntityDeleted<Language> eventMessage)
+        public void HandleEvent(EntityDeletedEvent<Language> eventMessage)
         {
             _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
 
         //manufacturers
-        public void HandleEvent(EntityUpdated<Manufacturer> eventMessage)
+        public void HandleEvent(EntityUpdatedEvent<Manufacturer> eventMessage)
         {
             _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
-        public void HandleEvent(EntityDeleted<Manufacturer> eventMessage)
+        public void HandleEvent(EntityDeletedEvent<Manufacturer> eventMessage)
         {
             _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
 
         //product manufacturers
-        public void HandleEvent(EntityInserted<ProductManufacturer> eventMessage)
+        public void HandleEvent(EntityInsertedEvent<ProductManufacturer> eventMessage)
         {
             _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
-        public void HandleEvent(EntityUpdated<ProductManufacturer> eventMessage)
+        public void HandleEvent(EntityUpdatedEvent<ProductManufacturer> eventMessage)
         {
             _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
-        public void HandleEvent(EntityDeleted<ProductManufacturer> eventMessage)
+        public void HandleEvent(EntityDeletedEvent<ProductManufacturer> eventMessage)
         {
             _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }

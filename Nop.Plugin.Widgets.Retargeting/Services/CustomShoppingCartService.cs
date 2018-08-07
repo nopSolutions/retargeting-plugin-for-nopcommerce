@@ -1,12 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Routing;
+using Newtonsoft.Json;
 using Nop.Core;
 using Nop.Core.Data;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Orders;
-using Nop.Core.Plugins;
+using Nop.Core.Http.Extensions;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Customers;
@@ -15,52 +19,59 @@ using Nop.Services.Events;
 using Nop.Services.Helpers;
 using Nop.Services.Localization;
 using Nop.Services.Orders;
+using Nop.Services.Plugins;
 using Nop.Services.Security;
+using Nop.Services.Seo;
+using Nop.Services.Shipping;
 using Nop.Services.Shipping.Date;
 using Nop.Services.Stores;
-using Microsoft.AspNetCore.Http;
-using Nop.Core.Http.Extensions;
-using Newtonsoft.Json;
 
 namespace Nop.Plugin.Widgets.Retargeting.Services
 {
     public class CustomShoppingCartService : ShoppingCartService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IOrderService _orderService;
         private readonly IPluginFinder _pluginFinder;
         private readonly IProductService _productService;
-        private readonly IOrderService _orderService;
-        private readonly IWorkContext _workContext;
         private readonly IStoreContext _storeContext;
+        private readonly IWorkContext _workContext;
 
         public CustomShoppingCartService(
             IHttpContextAccessor httpContextAccessor,
-            IPluginFinder pluginFinder,
             IOrderService orderService,
-            IRepository<ShoppingCartItem> sciRepository,
-            IWorkContext workContext,
-            IStoreContext storeContext,
-            ICurrencyService currencyService,
-            IProductService productService,
-            ILocalizationService localizationService,
-            IProductAttributeParser productAttributeParser,
-            ICheckoutAttributeService checkoutAttributeService,
-            ICheckoutAttributeParser checkoutAttributeParser,
-            IPriceFormatter priceFormatter,
-            ICustomerService customerService,
-            OrderSettings orderSettings,
-            ShoppingCartSettings shoppingCartSettings,
-            IEventPublisher eventPublisher,
-            IPermissionService permissionService,
+            IPluginFinder pluginFinder,
+
+            CatalogSettings catalogSettings,
             IAclService aclService,
+            IActionContextAccessor actionContextAccessor,
+            ICheckoutAttributeParser checkoutAttributeParser,
+            ICheckoutAttributeService checkoutAttributeService,
+            ICurrencyService currencyService,
+            ICustomerService customerService,
             IDateRangeService dateRangeService,
-            IStoreMappingService storeMappingService,
+            IDateTimeHelper dateTimeHelper,
+            IEventPublisher eventPublisher,
             IGenericAttributeService genericAttributeService,
+            ILocalizationService localizationService,
+            IPermissionService permissionService,
+            IPriceFormatter priceFormatter,
+            IProductAttributeParser productAttributeParser,
             IProductAttributeService productAttributeService,
-            IDateTimeHelper dateTimeHelper) : base(sciRepository, workContext, storeContext, currencyService, productService, localizationService,
-              productAttributeParser, checkoutAttributeService, checkoutAttributeParser, priceFormatter, customerService, orderSettings, shoppingCartSettings,
-              eventPublisher, permissionService, aclService, dateRangeService, storeMappingService, genericAttributeService, 
-              productAttributeService, dateTimeHelper)
+            IProductService productService,
+            IRepository<ShoppingCartItem> sciRepository,
+            IShippingService shippingService,
+            IStoreContext storeContext,
+            IStoreMappingService storeMappingService,
+            IUrlHelperFactory urlHelperFactory,
+            IUrlRecordService urlRecordService,
+            IWorkContext workContext,
+            OrderSettings orderSettings,
+            ShoppingCartSettings shoppingCartSettings) :
+            base(catalogSettings, aclService, actionContextAccessor, checkoutAttributeParser, checkoutAttributeService, currencyService,
+              customerService, dateRangeService, dateTimeHelper, eventPublisher, genericAttributeService, localizationService, permissionService,
+              priceFormatter, productAttributeParser, productAttributeService, productService, sciRepository, shippingService,
+              storeContext, storeMappingService, urlHelperFactory, urlRecordService, workContext, orderSettings, shoppingCartSettings)
         {
             _httpContextAccessor = httpContextAccessor;
             _pluginFinder = pluginFinder;

@@ -2,51 +2,42 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Encodings.Web;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Nop.Core;
 using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
+using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Discounts;
-using Nop.Core.Domain.Media;
 using Nop.Core.Domain.Orders;
-using Nop.Core.Plugins;
 using Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache;
 using Nop.Plugin.Widgets.Retargeting.Models;
 using Nop.Services.Catalog;
 using Nop.Services.Configuration;
-using Nop.Services.Customers;
 using Nop.Services.Discounts;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
 using Nop.Services.Media;
 using Nop.Services.Orders;
+using Nop.Services.Plugins;
 using Nop.Services.Seo;
-using Nop.Services.Stores;
-using Nop.Services.Topics;
+using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;
 using Nop.Web.Framework.Mvc;
+using Nop.Web.Framework.Mvc.Filters;
 using Nop.Web.Framework.Security;
 using Nop.Web.Framework.UI;
-using Microsoft.AspNetCore.Http;
-using Nop.Web.Framework.Mvc.Filters;
-using Microsoft.AspNetCore.Mvc;
-using Nop.Core.Http.Extensions;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
-using System.Text.Encodings.Web;
-using Nop.Web.Framework;
 
 namespace Nop.Plugin.Widgets.Retargeting.Controllers
 {
     public class WidgetsRetargetingController : BasePluginController
     {
-        private readonly ITopicService _topicService;
-        private readonly IStoreService _storeService;
-        private readonly IOrderService _orderService;
         private readonly IPictureService _pictureService;
         private readonly ISettingService _settingService;
         private readonly IProductService _productService;
         private readonly IDiscountService _discountService;
         private readonly ICategoryService _categoryService;
-        private readonly ICustomerService _customerService;
         private readonly IShoppingCartService _shoppingCartService;
         private readonly IManufacturerService _manufacturerService;
         private readonly ILocalizationService _localizationService;
@@ -58,22 +49,14 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         private readonly IStoreContext _storeContext;
         private readonly ICacheManager _cacheManager;
         private readonly IProductAttributeParser _productAttributeParser;
-
-        private readonly MediaSettings _mediaSettings;
-
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IActionContextAccessor _actionContextAccessor;
+        private readonly IUrlRecordService _urlRecordService;
 
         public WidgetsRetargetingController(
-            ITopicService topicService,
-            IStoreService storeService,
-            IOrderService orderService,
             IPictureService pictureService,
             ISettingService settingService,
             IProductService productService,
             IDiscountService discountService,
             ICategoryService categoryService,
-            ICustomerService customerService,
             IShoppingCartService shoppingCartService,
             IManufacturerService manufacturerService,
             ILocalizationService localizationService,
@@ -85,22 +68,13 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             IStoreContext storeContext,
             ICacheManager cacheManager,
             IProductAttributeParser productAttributeParser,
-
-            MediaSettings mediaSettings,
-
-            IHttpContextAccessor httpContextAccessor,
-            IActionContextAccessor actionContextAccessor
-            )
+            IUrlRecordService urlRecordService)
         {
-            _topicService = topicService;
-            _storeService = storeService;
-            _orderService = orderService;
             _pictureService = pictureService;
             _settingService = settingService;
             _productService = productService;
             _discountService = discountService;
             _categoryService = categoryService;
-            _customerService = customerService;
             _shoppingCartService = shoppingCartService;
             _manufacturerService = manufacturerService;
             _localizationService = localizationService;
@@ -112,11 +86,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             _storeContext = storeContext;
             _cacheManager = cacheManager;
             _productAttributeParser = productAttributeParser;
-
-            _mediaSettings = mediaSettings;
-
-            _httpContextAccessor = httpContextAccessor;
-            _actionContextAccessor = actionContextAccessor;
+            _urlRecordService = urlRecordService;
         }
 
         [AuthorizeAdmin]
@@ -124,7 +94,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         public IActionResult Configure()
         {
             //load settings for a chosen store scope
-            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
             var retargetingSettings = _settingService.LoadSetting<RetargetingSettings>(storeScope);
 
             var model = new ConfigurationModel
@@ -174,7 +144,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 return Configure();
 
             //load settings for a chosen store scope
-            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
             var retargetingSettings = _settingService.LoadSetting<RetargetingSettings>(storeScope);
 
             //save settings
@@ -251,7 +221,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         public IActionResult ResetSettings()
         {
             //load settings for a chosen store scope
-            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
             var retargetingSettings = _settingService.LoadSetting<RetargetingSettings>(storeScope);
 
             //save settings
@@ -397,8 +367,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 #region Product details
 
                 productInfo.Add("id", product.Id);
-                productInfo.Add("name", JavaScriptEncoder.Default.Encode(product.GetLocalized(x => x.Name)) ?? "");
-                productInfo.Add("url", string.Format("{0}{1}", _storeContext.CurrentStore.Url, product.GetSeName()));
+                productInfo.Add("name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(product, x => x.Name)) ?? "");
+                productInfo.Add("url", string.Format("{0}{1}", _storeContext.CurrentStore.Url, _urlRecordService.GetSeName(product)));
                 productInfo.Add("img", GetProductImageUrl(product));
 
                 decimal price;
@@ -458,7 +428,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 {
                     var categoryObj = new Dictionary<string, object>
                 {
-                    {"name", JavaScriptEncoder.Default.Encode(category.GetLocalized(x => x.Name) ?? "")},
+                    {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(category, x => x.Name) ?? "")},
                     {"id", category.Id}
                 };
 
@@ -473,7 +443,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                             var bc1 = new Dictionary<string, object>
                         {
                             {"id", parentCategory.Id},
-                            {"name", JavaScriptEncoder.Default.Encode(parentCategory.GetLocalized(x => x.Name) ?? "")}
+                            {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(parentCategory, x => x.Name) ?? "")}
                         };
 
                             if (parentCategory.ParentCategoryId > 0)
@@ -489,7 +459,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                                 breadcrumb.Add(new Dictionary<string, object>
                             {
                                 {"id", parentParentCategory.Id},
-                                {"name", JavaScriptEncoder.Default.Encode(parentParentCategory.GetLocalized(x => x.Name) ?? "")},
+                                {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(parentParentCategory, x => x.Name) ?? "")},
                                 {"parent", false}
                             });
                             }
@@ -528,7 +498,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 if (manufacturers.Count > 0)
                 {
                     manufacturer.Add("id", manufacturers[0].Id);
-                    manufacturer.Add("name", JavaScriptEncoder.Default.Encode(manufacturers[0].GetLocalized(m => m.Name) ?? ""));
+                    manufacturer.Add("name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(manufacturers[0], m => m.Name) ?? ""));
 
                     productInfo.Add("brand", manufacturer);
                 }
@@ -564,7 +534,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                                 if (!product.DisplayStockAvailability)
                                     inStock = true;
 
-                                var stockQuantity = product.GetTotalStockQuantity();
+                                var stockQuantity = _productService.GetTotalStockQuantity(product);
                                 if (stockQuantity > 0)
                                     inStock = true;
                                 else

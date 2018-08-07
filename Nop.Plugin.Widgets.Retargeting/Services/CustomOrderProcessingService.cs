@@ -7,7 +7,6 @@ using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Payments;
 using Nop.Core.Domain.Shipping;
 using Nop.Core.Domain.Tax;
-using Nop.Core.Plugins;
 using Nop.Services.Affiliates;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
@@ -20,6 +19,7 @@ using Nop.Services.Logging;
 using Nop.Services.Messages;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
+using Nop.Services.Plugins;
 using Nop.Services.Security;
 using Nop.Services.Shipping;
 using Nop.Services.Tax;
@@ -33,55 +33,56 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
 
         public CustomOrderProcessingService(
             IPluginFinder pluginFinder,
-            IOrderService orderService,
-            IWebHelper webHelper,
-            ILocalizationService localizationService,
-            ILanguageService languageService,
-            IProductService productService,
-            IPaymentService paymentService,
-            ILogger logger,
-            IOrderTotalCalculationService orderTotalCalculationService,
-            IPriceCalculationService priceCalculationService,
-            IPriceFormatter priceFormatter,
-            IProductAttributeParser productAttributeParser,
-            IProductAttributeFormatter productAttributeFormatter,
-            IGiftCardService giftCardService,
-            IShoppingCartService shoppingCartService,
+
+            CurrencySettings currencySettings,
+            IAffiliateService affiliateService,
             ICheckoutAttributeFormatter checkoutAttributeFormatter,
-            IShippingService shippingService,
-            IShipmentService shipmentService,
-            ITaxService taxService,
+            ICountryService countryService,
+            ICurrencyService currencyService,
+            ICustomerActivityService customerActivityService,
             ICustomerService customerService,
+            ICustomNumberFormatter customNumberFormatter,
             IDiscountService discountService,
             IEncryptionService encryptionService,
+            IEventPublisher eventPublisher,
+            IGenericAttributeService genericAttributeService,
+            IGiftCardService giftCardService,
+            ILanguageService languageService,
+            ILocalizationService localizationService,
+            ILogger logger,
+            IOrderService orderService,
+            IOrderTotalCalculationService orderTotalCalculationService,
+            IPaymentService paymentService,
+            IPdfService pdfService,
+            IPriceCalculationService priceCalculationService,
+            IPriceFormatter priceFormatter,
+            IProductAttributeFormatter productAttributeFormatter,
+            IProductAttributeParser productAttributeParser,
+            IProductService productService,
+            IRewardPointService rewardPointService,
+            IShipmentService shipmentService,
+            IShippingService shippingService,
+            IShoppingCartService shoppingCartService,
+            IStateProvinceService stateProvinceService,
+            ITaxService taxService,
+            IVendorService vendorService,
+            IWebHelper webHelper,
             IWorkContext workContext,
             IWorkflowMessageService workflowMessageService,
-            IVendorService vendorService,
-            ICustomerActivityService customerActivityService,
-            ICurrencyService currencyService,
-            IAffiliateService affiliateService,
-            IEventPublisher eventPublisher,
-            IPdfService pdfService,
-            IRewardPointService rewardPointService,
-            IGenericAttributeService genericAttributeService,
-            ICountryService countryService,
-            IStateProvinceService stateProvinceService,
-            ShippingSettings shippingSettings,
+            LocalizationSettings localizationSettings,
+            OrderSettings orderSettings,
             PaymentSettings paymentSettings,
             RewardPointsSettings rewardPointsSettings,
-            OrderSettings orderSettings,
-            TaxSettings taxSettings,
-            LocalizationSettings localizationSettings,
-            CurrencySettings currencySettings,
-            ICustomNumberFormatter customNumberFormatter) : 
-            base(orderService, webHelper, localizationService, languageService, productService, paymentService, logger, 
-                orderTotalCalculationService, priceCalculationService, priceFormatter, productAttributeParser, 
-                productAttributeFormatter, giftCardService, shoppingCartService, checkoutAttributeFormatter, 
-                shippingService, shipmentService, taxService, customerService, discountService, encryptionService, 
-                workContext, workflowMessageService, vendorService, customerActivityService, currencyService, 
-                affiliateService, eventPublisher, pdfService, rewardPointService, genericAttributeService, countryService,
-                stateProvinceService, shippingSettings, paymentSettings, rewardPointsSettings, orderSettings, taxSettings, 
-                localizationSettings, currencySettings, customNumberFormatter)
+            ShippingSettings shippingSettings,
+            TaxSettings taxSettings) :
+            base(currencySettings, affiliateService, checkoutAttributeFormatter, countryService, currencyService, customerActivityService,
+                customerService, customNumberFormatter, discountService, encryptionService, eventPublisher,
+                genericAttributeService, giftCardService, languageService, localizationService,
+                logger, orderService, orderTotalCalculationService, paymentService, pdfService, priceCalculationService,
+                priceFormatter, productAttributeFormatter, productAttributeParser, productService, rewardPointService,
+                shipmentService, shippingService, shoppingCartService, stateProvinceService, taxService, vendorService,
+                webHelper, workContext, workflowMessageService, localizationSettings, orderSettings, paymentSettings,
+                rewardPointsSettings, shippingSettings, taxSettings)
         {
             _pluginFinder = pluginFinder;
         }

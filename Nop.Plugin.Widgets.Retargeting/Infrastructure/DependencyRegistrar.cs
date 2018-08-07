@@ -1,10 +1,7 @@
 using Autofac;
-using Autofac.Core;
-using Nop.Core.Caching;
 using Nop.Core.Configuration;
 using Nop.Core.Infrastructure;
 using Nop.Core.Infrastructure.DependencyManagement;
-using Nop.Plugin.Widgets.Retargeting.Controllers;
 using Nop.Plugin.Widgets.Retargeting.Services;
 using Nop.Services.Authentication;
 using Nop.Services.Orders;

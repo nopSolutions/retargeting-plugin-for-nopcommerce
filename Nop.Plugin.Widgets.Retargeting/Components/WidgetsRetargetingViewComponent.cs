@@ -2,32 +2,26 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Encodings.Web;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Nop.Core;
-using Nop.Core.Caching;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Media;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Tax;
-using Nop.Core.Plugins;
+using Nop.Core.Http.Extensions;
 using Nop.Plugin.Widgets.Retargeting.Models;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Configuration;
 using Nop.Services.Customers;
 using Nop.Services.Discounts;
-using Nop.Services.Localization;
-using Nop.Services.Logging;
-using Nop.Services.Media;
 using Nop.Services.Orders;
-using Nop.Services.Stores;
 using Nop.Services.Topics;
-using OrderItem = Nop.Plugin.Widgets.Retargeting.Models.OrderItem;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Nop.Core.Http.Extensions;
-using System.Text.Encodings.Web;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Nop.Web.Framework.Components;
+using OrderItem = Nop.Plugin.Widgets.Retargeting.Models.OrderItem;
 
 namespace Nop.Plugin.Widgets.Retargeting.Components
 {
@@ -35,80 +29,56 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
     public class WidgetsRetargetingViewComponent : NopViewComponent
     {
         private readonly ITopicService _topicService;
-        private readonly IStoreService _storeService;
         private readonly IOrderService _orderService;
-        private readonly IPictureService _pictureService;
         private readonly ISettingService _settingService;
         private readonly IProductService _productService;
         private readonly IDiscountService _discountService;
         private readonly ICategoryService _categoryService;
         private readonly ICustomerService _customerService;
-        private readonly IShoppingCartService _shoppingCartService;
         private readonly IManufacturerService _manufacturerService;
-        private readonly ILocalizationService _localizationService;
-        private readonly IProductAttributeService _productAttributeService;
 
-        private readonly ILogger _logger;
+        private readonly IGenericAttributeService _genericAttributeService;
         private readonly IWorkContext _workContext;
-        private readonly IPluginFinder _pluginFinder;
         private readonly IStoreContext _storeContext;
-        private readonly ICacheManager _cacheManager;
         private readonly IProductAttributeParser _productAttributeParser;
 
         private readonly MediaSettings _mediaSettings;
-
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IActionContextAccessor _actionContextAccessor;
 
         public WidgetsRetargetingViewComponent(ITopicService topicService,
-            IStoreService storeService,
             IOrderService orderService,
-            IPictureService pictureService,
             ISettingService settingService,
             IProductService productService,
             IDiscountService discountService,
             ICategoryService categoryService,
             ICustomerService customerService,
-            IShoppingCartService shoppingCartService,
             IManufacturerService manufacturerService,
-            ILocalizationService localizationService,
-            IProductAttributeService productAttributeService,
 
-            ILogger logger,
+            IGenericAttributeService genericAttributeService,
             IWorkContext workContext,
-            IPluginFinder pluginFinder,
             IStoreContext storeContext,
-            ICacheManager cacheManager,
             IProductAttributeParser productAttributeParser,
 
             MediaSettings mediaSettings,
-
             IHttpContextAccessor httpContextAccessor,
             IActionContextAccessor actionContextAccessor)
         {
             _topicService = topicService;
-            _storeService = storeService;
             _orderService = orderService;
-            _pictureService = pictureService;
             _settingService = settingService;
             _productService = productService;
             _discountService = discountService;
             _categoryService = categoryService;
             _customerService = customerService;
-            _shoppingCartService = shoppingCartService;
             _manufacturerService = manufacturerService;
-            _localizationService = localizationService;
-            _productAttributeService = productAttributeService;
 
-            _logger = logger;
+            _genericAttributeService = genericAttributeService;
             _workContext = workContext;
-            _pluginFinder = pluginFinder;
             _storeContext = storeContext;
-            _cacheManager = cacheManager;
             _productAttributeParser = productAttributeParser;
 
             _mediaSettings = mediaSettings;
-
             _httpContextAccessor = httpContextAccessor;
             _actionContextAccessor = actionContextAccessor;
         }
@@ -149,14 +119,14 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                     model.CustomerModel = new CustomerModel()
                     {
                         Name = JavaScriptEncoder.Default.Encode(
-                               customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName) + " " +
-                               customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName)),
+                               _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.FirstNameAttribute) + " " +
+                               _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.LastNameAttribute)),
                         Email = customer.Email,
-                        City = JavaScriptEncoder.Default.Encode(customer.GetAttribute<string>(SystemCustomerAttributeNames.City) ?? ""),
-                        Phone = JavaScriptEncoder.Default.Encode(customer.GetAttribute<string>(SystemCustomerAttributeNames.Phone) ?? "")
+                        City = JavaScriptEncoder.Default.Encode(_genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.CityAttribute) ?? ""),
+                        Phone = JavaScriptEncoder.Default.Encode(_genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.PhoneAttribute) ?? "")
                     };
 
-                    var gender = customer.GetAttribute<string>(SystemCustomerAttributeNames.Gender);
+                    var gender = _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.GenderAttribute);
                     switch (gender)
                     {
                         case "M":
@@ -170,7 +140,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                             break;
                     }
 
-                    var dateOfBirth = customer.GetAttribute<DateTime?>(SystemCustomerAttributeNames.DateOfBirth);
+                    var dateOfBirth = _genericAttributeService.GetAttribute<DateTime?>(customer, NopCustomerDefaults.DateOfBirthAttribute);
                     if (dateOfBirth.HasValue)
                         model.CustomerModel.Birthday = dateOfBirth.Value.ToString("dd-MM-yyyy");
 
@@ -320,7 +290,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                             orderModel.DiscountCode += ", ";
                     }
 
-                    var dateOfBirth = order.Customer.GetAttribute<DateTime?>(SystemCustomerAttributeNames.DateOfBirth);
+                    var dateOfBirth = _genericAttributeService.GetAttribute<DateTime?>(order.Customer, NopCustomerDefaults.FirstNameAttribute);
                     if (dateOfBirth.HasValue)
                         orderModel.Birthday = dateOfBirth.Value.ToString("dd-mm-yyyy");
 

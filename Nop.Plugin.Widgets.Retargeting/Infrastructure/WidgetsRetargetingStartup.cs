@@ -17,7 +17,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure
         /// </summary>
         /// <param name="services">Collection of service descriptors</param>
         /// <param name="configuration">Configuration root of the application</param>
-        public void ConfigureServices(IServiceCollection services, IConfigurationRoot configuration)
+        public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
         {
             services.Configure<MvcOptions>(congig => {congig.Filters.Add(new RetargetingAddToCartFilterAttribute());
             });
