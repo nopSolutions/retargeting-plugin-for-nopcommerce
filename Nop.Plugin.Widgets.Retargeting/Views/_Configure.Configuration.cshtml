@@ -1,8 +1,32 @@
 ﻿@model Nop.Plugin.Widgets.Retargeting.Models.ConfigurationModel
 
 <div class="panel-group">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <p>
+                    @T("Plugins.Widgets.Retargeting.SubscribeRetargeting")
+                </p>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="MerchantEmail_OverrideForStore" asp-input="MerchantEmail" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="MerchantEmail" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="MerchantEmail" />
+                        <span asp-validation-for="MerchantEmail"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-9 col-md-offset-3">
+                        @*<input type="submit" name="subscribe" class="btn btn-primary" value="@T("Plugins.Widgets.Retargeting.Subscribe")" />*@
+                        <input type="submit" name="subscribe" class="btn bg-blue" value="@T("Plugins.Widgets.Retargeting.Subscribe")" />
+                    </div>
+                </div>
+            </div>
+        </div>
     <div class="panel panel-default">
         <div class="panel-body">
+
             <p>
                 <em>@T("Plugins.Widgets.Retargeting.CustomizationNote")</em>
             </p>
@@ -127,6 +151,76 @@
                 <div class="col-md-9">
                     <nop-editor asp-for="ProductReviewAddedResultSelector" />
                     <span asp-validation-for="ProductReviewAddedResultSelector"></span>
+                </div>
+            </div>
+                <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="RecommendationHomePage_OverrideForStore" asp-input="RecommendationHomePage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="RecommendationHomePage" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="RecommendationHomePage" />
+                    <span asp-validation-for="RecommendationHomePage"></span>
+                </div>
+            </div>
+                <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="RecommendationCategoryPage_OverrideForStore" asp-input="RecommendationCategoryPage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="RecommendationCategoryPage" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="RecommendationCategoryPage" />
+                    <span asp-validation-for="RecommendationCategoryPage"></span>
+                </div>
+            </div>
+                <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="RecommendationProductPage_OverrideForStore" asp-input="RecommendationProductPage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="RecommendationProductPage" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="RecommendationProductPage" />
+                    <span asp-validation-for="RecommendationProductPage"></span>
+                </div>
+            </div>
+                <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="RecommendationCheckoutPage_OverrideForStore" asp-input="RecommendationCheckoutPage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="RecommendationCheckoutPage" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="RecommendationCheckoutPage" />
+                    <span asp-validation-for="RecommendationCheckoutPage"></span>
+                </div>
+            </div>
+                <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="RecommendationThankYouPage_OverrideForStore" asp-input="RecommendationThankYouPage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="RecommendationThankYouPage" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="RecommendationThankYouPage" />
+                    <span asp-validation-for="RecommendationThankYouPage"></span>
+                </div>
+            </div>
+                <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="RecommendationSearchPage_OverrideForStore" asp-input="RecommendationSearchPage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="RecommendationSearchPage" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="RecommendationSearchPage" />
+                    <span asp-validation-for="RecommendationSearchPage"></span>
+                </div>
+            </div>
+                <div class="form-group">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="RecommendationPageNotFound_OverrideForStore" asp-input="RecommendationPageNotFound" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="RecommendationPageNotFound" />
+                </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="RecommendationPageNotFound" />
+                    <span asp-validation-for="RecommendationPageNotFound"></span>
                 </div>
             </div>
             <div class="form-group">

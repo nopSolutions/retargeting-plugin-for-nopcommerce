@@ -41,7 +41,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             IHttpContextAccessor httpContextAccessor,
             IOrderService orderService,
             IPluginFinder pluginFinder,
-
             CatalogSettings catalogSettings,
             IAclService aclService,
             IActionContextAccessor actionContextAccessor,

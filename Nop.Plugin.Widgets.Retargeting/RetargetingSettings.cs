@@ -27,5 +27,24 @@ namespace Nop.Plugin.Widgets.Retargeting
         public string HelpTopicSystemNames { get; set; }
 
         public string ProductReviewAddedResultSelector { get; set; }
+
+        public string MerchantEmail { get; set; }
+
+        public bool RecommendationHomePage { get; set; }
+
+        public bool RecommendationCategoryPage { get; set; }
+
+        public bool RecommendationProductPage { get; set; }
+
+        public bool RecommendationCheckoutPage { get; set; }
+
+        public bool RecommendationThankYouPage { get; set; }
+
+        public bool RecommendationOutOfStockPage { get; set; }
+
+        public bool RecommendationSearchPage { get; set; }
+
+        public bool RecommendationPageNotFound { get; set; }
+
     }
 }

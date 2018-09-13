@@ -1,5 +1,6 @@
 ﻿@using Newtonsoft.Json;
 @using Nop.Core.Domain.Orders
+@using Nop.Plugin.Widgets.Retargeting
 @using Nop.Plugin.Widgets.Retargeting.Models
 @model Nop.Plugin.Widgets.Retargeting.Models.PublicInfoModel
 @{
@@ -12,9 +13,9 @@
     @if (Model.ProductId > 0)
     {
         <text>
-    add_to_cart_button_id = "@Model.AddToCartButtonIdDetailsPrefix" + "@Model.ProductId";
-    price_label_id = "@Model.ProductPriceLabelDetailsSelector";
-    </text>
+            add_to_cart_button_id = "@Model.AddToCartButtonIdDetailsPrefix" + "@Model.ProductId";
+            price_label_id = "@Model.ProductPriceLabelDetailsSelector";
+        </text>
     }
 
     (function () {
@@ -140,6 +141,12 @@
         //send category script
         sendCategoryInfo("@Model.CategoryModel.CategoryId", "@Model.CategoryModel.CategoryName",
             parentCategoryId, breadcrumb1, breadcrumb2);
+                    @if (Model.RecommendationCategoryPage) {
+                <text>
+                    addRecommendation("@RetargetingDefaults.RecommendationCategoryPage");
+                </text>
+            }
+
         </text>
         }
 
@@ -181,7 +188,20 @@
         });
 
         </text>
+
+         @if (Model.RecommendationProductPage) {
+                <text>
+                    addRecommendation("@RetargetingDefaults.RecommendationProductPage");
+                </text>
+            }
         }
+
+                //thank you page
+        @if (Model.RenderThankYouFunc & Model.RecommendationThankYouPage) {
+                <text>
+                    addRecommendation("@RetargetingDefaults.RecommendationThankYouPage");
+                </text>
+            }
 
         //add to cart
         @if (Model.RenderAddToCartFunc)
@@ -352,6 +372,47 @@
         </text>
         }
 
+        //home page
+        @if (Model.RenderVisitHomePageFunc)
+        {
+            <text>
+                visitHomePage();
+            </text>
+
+            @if (Model.RecommendationHomePage) {
+                <text>
+                    addRecommendation("@RetargetingDefaults.RecommendationHomePage");
+                </text>
+            }
+        }
+
+        //search page
+        @if (Model.RenderSendSearchTermFunc)
+        {
+            <text>
+        var term = $('input#q')[0].value
+        sendSearchTerm(term);
+        </text>
+            @if (Model.RecommendationSearchPage) {
+                <text>
+                    addRecommendation("@RetargetingDefaults.RecommendationSearchPage");
+                </text>
+            }
+        }
+
+        //page not found
+        @if (Model.RenderPageNotFoundFunc)
+        {
+            <text>
+        pageNotFound();
+        </text>
+            @if (Model.RecommendationPageNotFound) {
+                <text>
+                    addRecommendation("@RetargetingDefaults.RecommendationPageNotFound");
+                </text>
+            }
+        }
+
         //send cart item ids
         @if (Model.RenderCheckoutIdsFunc)
         {
@@ -359,6 +420,11 @@
         var ids = "@Model.CartItemIds".split(",").filter(function (el) { return el.length !== 0 });
         checkoutIds(ids);
         </text>
+            @if (Model.RecommendationCheckoutPage) {
+                <text>
+                    addRecommendation("@RetargetingDefaults.RecommendationCheckoutPage");
+                </text>
+            }
         }
     });
 
@@ -522,4 +588,40 @@
             }
         });
     }
+
+    function likeFacebook(productId) {
+        if (_ra.ready !== undefined) {
+            _ra.likeFacebook(productId);
+        }
+    }
+
+    function sendSearchTerm(searchTerm) {
+        if (_ra.ready !== undefined) {
+            _ra.sendSearchTerm(searchTerm);
+        }
+    }
+
+    function visitHomePage() {
+        _ra.visitHomePageInfo = {
+            "visit": true
+        }
+        
+        if (_ra.ready !== undefined) {
+            _ra.visitHomePage();
+        }
+    }
+
+    function pageNotFound () {
+        _ra.pageNotFoundInfo = true;
+        
+        if (_ra.ready !== undefined) {
+            _ra.pageNotFoundPage();
+        }
+    }
+
+    function addRecommendation(recommendation) {
+        var r = '<div id="'+recommendation+'"></div>';
+        $( r ).insertBefore( "div.master-wrapper-page" );
+    }
+
 </script>

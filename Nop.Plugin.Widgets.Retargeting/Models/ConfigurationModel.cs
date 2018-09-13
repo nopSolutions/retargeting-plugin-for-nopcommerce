@@ -1,10 +1,16 @@
 ﻿using Nop.Web.Framework.Mvc.ModelBinding;
+using System.ComponentModel.DataAnnotations;
 
 namespace Nop.Plugin.Widgets.Retargeting.Models
 {
     public class ConfigurationModel
     {
         public int ActiveStoreScopeConfiguration { get; set; }
+
+        [NopResourceDisplayName("Plugins.Widgets.Retargeting.MerchantEmail")]
+        [DataType(DataType.EmailAddress)]
+        public string MerchantEmail { get; set; }
+        public bool MerchantEmail_OverrideForStore { get; set; }
 
         [NopResourceDisplayName("Plugins.Widgets.Retargeting.TrackingApiKey")]
         public string TrackingApiKey { get; set; }
@@ -53,5 +59,37 @@ namespace Nop.Plugin.Widgets.Retargeting.Models
         [NopResourceDisplayName("Plugins.Widgets.Retargeting.ProductMainPictureIdDetailsPrefix")]
         public string ProductMainPictureIdDetailsPrefix { get; set; }
         public bool ProductMainPictureIdDetailsPrefix_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Plugins.Widgets.Retargeting.RecommendationHomePage")]
+        public bool RecommendationHomePage { get; set; }
+        public bool RecommendationHomePage_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Plugins.Widgets.Retargeting.RecommendationCategoryPage")]
+        public bool RecommendationCategoryPage { get; set; }
+        public bool RecommendationCategoryPage_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Plugins.Widgets.Retargeting.RecommendationProductPage")]
+        public bool RecommendationProductPage { get; set; }
+        public bool RecommendationProductPage_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Plugins.Widgets.Retargeting.RecommendationCheckoutPage")]
+        public bool RecommendationCheckoutPage { get; set; }
+        public bool RecommendationCheckoutPage_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Plugins.Widgets.Retargeting.RecommendationThankYouPage")]
+        public bool RecommendationThankYouPage { get; set; }
+        public bool RecommendationThankYouPage_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Plugins.Widgets.Retargeting.RecommendationOutOfStockPage")]
+        public bool RecommendationOutOfStockPage { get; set; }
+        public bool RecommendationOutOfStockPage_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Plugins.Widgets.Retargeting.RecommendationSearchPage")]
+        public bool RecommendationSearchPage { get; set; }
+        public bool RecommendationSearchPage_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Plugins.Widgets.Retargeting.RecommendationPageNotFound")]
+        public bool RecommendationPageNotFound { get; set; }
+        public bool RecommendationPageNotFound_OverrideForStore { get; set; }
     }
 }

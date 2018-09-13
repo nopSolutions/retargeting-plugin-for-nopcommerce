@@ -10,6 +10,7 @@ using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Discounts;
+using Nop.Core.Domain.Messages;
 using Nop.Core.Domain.Orders;
 using Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache;
 using Nop.Plugin.Widgets.Retargeting.Models;
@@ -19,6 +20,7 @@ using Nop.Services.Discounts;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
 using Nop.Services.Media;
+using Nop.Services.Messages;
 using Nop.Services.Orders;
 using Nop.Services.Plugins;
 using Nop.Services.Seo;
@@ -33,60 +35,67 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 {
     public class WidgetsRetargetingController : BasePluginController
     {
-        private readonly IPictureService _pictureService;
-        private readonly ISettingService _settingService;
-        private readonly IProductService _productService;
-        private readonly IDiscountService _discountService;
-        private readonly ICategoryService _categoryService;
-        private readonly IShoppingCartService _shoppingCartService;
-        private readonly IManufacturerService _manufacturerService;
-        private readonly ILocalizationService _localizationService;
-        private readonly IProductAttributeService _productAttributeService;
-
-        private readonly ILogger _logger;
-        private readonly IWorkContext _workContext;
-        private readonly IPluginFinder _pluginFinder;
-        private readonly IStoreContext _storeContext;
+        private readonly EmailAccountSettings _emailAccountSettings;
         private readonly ICacheManager _cacheManager;
+        private readonly ICategoryService _categoryService;
+        private readonly IDiscountService _discountService;
+        private readonly IEmailAccountService _emailAccountService;
+        private readonly IEmailSender _emailSender;
+        private readonly ILocalizationService _localizationService;
+        private readonly ILogger _logger;
+        private readonly IManufacturerService _manufacturerService;
+        private readonly IPictureService _pictureService;
+        private readonly IPluginFinder _pluginFinder;
         private readonly IProductAttributeParser _productAttributeParser;
+        private readonly IProductAttributeService _productAttributeService;
+        private readonly IProductService _productService;
+        private readonly ISettingService _settingService;
+        private readonly IShoppingCartService _shoppingCartService;
+        private readonly IStoreContext _storeContext;
         private readonly IUrlRecordService _urlRecordService;
+        private readonly IWorkContext _workContext;
 
         public WidgetsRetargetingController(
-            IPictureService pictureService,
-            ISettingService settingService,
-            IProductService productService,
-            IDiscountService discountService,
-            ICategoryService categoryService,
-            IShoppingCartService shoppingCartService,
-            IManufacturerService manufacturerService,
-            ILocalizationService localizationService,
-            IProductAttributeService productAttributeService,
-
-            ILogger logger,
-            IWorkContext workContext,
-            IPluginFinder pluginFinder,
-            IStoreContext storeContext,
+            EmailAccountSettings emailAccountSettings,
             ICacheManager cacheManager,
+            ICategoryService categoryService,
+            IDiscountService discountService,
+            IEmailAccountService emailAccountService,
+            IEmailSender emailSender,
+            ILocalizationService localizationService,
+            ILogger logger,
+            IManufacturerService manufacturerService,
+            IPictureService pictureService,
+            IPluginFinder pluginFinder,
             IProductAttributeParser productAttributeParser,
-            IUrlRecordService urlRecordService)
+            IProductAttributeService productAttributeService,
+            IProductService productService,
+            ISettingService settingService,
+            IShoppingCartService shoppingCartService,
+            IStoreContext storeContext,
+            IUrlRecordService urlRecordService,
+            IWorkContext workContext
+            )
         {
-            _pictureService = pictureService;
-            _settingService = settingService;
-            _productService = productService;
-            _discountService = discountService;
-            _categoryService = categoryService;
-            _shoppingCartService = shoppingCartService;
-            _manufacturerService = manufacturerService;
-            _localizationService = localizationService;
-            _productAttributeService = productAttributeService;
-
-            _logger = logger;
-            _workContext = workContext;
-            _pluginFinder = pluginFinder;
-            _storeContext = storeContext;
+            _emailAccountSettings = emailAccountSettings;
             _cacheManager = cacheManager;
+            _categoryService = categoryService;
+            _discountService = discountService;
+            _emailAccountService = emailAccountService;
+            _emailSender = emailSender;
+            _localizationService = localizationService;
+            _logger = logger;
+            _manufacturerService = manufacturerService;
+            _pictureService = pictureService;
+            _pluginFinder = pluginFinder;
             _productAttributeParser = productAttributeParser;
+            _productAttributeService = productAttributeService;
+            _productService = productService;
+            _settingService = settingService;
+            _shoppingCartService = shoppingCartService;
+            _storeContext = storeContext;
             _urlRecordService = urlRecordService;
+            _workContext = workContext;
         }
 
         [AuthorizeAdmin]
@@ -112,6 +121,17 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 ProductBoxSelector = retargetingSettings.ProductBoxSelector,
                 ProductMainPictureIdDetailsPrefix = retargetingSettings.ProductMainPictureIdDetailsPrefix,
 
+                RecommendationHomePage = retargetingSettings.RecommendationHomePage,
+                RecommendationCategoryPage = retargetingSettings.RecommendationCategoryPage,
+                RecommendationProductPage = retargetingSettings.RecommendationProductPage,
+                RecommendationCheckoutPage = retargetingSettings.RecommendationCheckoutPage,
+                RecommendationThankYouPage = retargetingSettings.RecommendationThankYouPage,
+                RecommendationOutOfStockPage = retargetingSettings.RecommendationOutOfStockPage,
+                RecommendationSearchPage = retargetingSettings.RecommendationSearchPage,
+                RecommendationPageNotFound = retargetingSettings.RecommendationPageNotFound,
+
+                MerchantEmail = retargetingSettings.MerchantEmail,
+
                 ActiveStoreScopeConfiguration = storeScope
             };
 
@@ -129,6 +149,17 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 model.AddToCartCatalogButtonSelector_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.AddToCartCatalogButtonSelector, storeScope);
                 model.ProductBoxSelector_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.ProductBoxSelector, storeScope);
                 model.ProductMainPictureIdDetailsPrefix_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.ProductMainPictureIdDetailsPrefix, storeScope);
+
+                model.RecommendationHomePage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationHomePage, storeScope);
+                model.RecommendationCategoryPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationCategoryPage, storeScope);
+                model.RecommendationProductPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationProductPage, storeScope);
+                model.RecommendationCheckoutPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationCheckoutPage, storeScope);
+                model.RecommendationThankYouPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationThankYouPage, storeScope);
+                model.RecommendationOutOfStockPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationOutOfStockPage, storeScope);
+                model.RecommendationSearchPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationSearchPage, storeScope);
+                model.RecommendationPageNotFound_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationPageNotFound, storeScope);
+
+                model.MerchantEmail_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.MerchantEmail, storeScope);
             }
 
             return View("~/Plugins/Widgets.Retargeting/Views/Configure.cshtml", model);
@@ -161,6 +192,18 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             retargetingSettings.ProductBoxSelector = model.ProductBoxSelector;
             retargetingSettings.ProductMainPictureIdDetailsPrefix = model.ProductMainPictureIdDetailsPrefix;
 
+            retargetingSettings.RecommendationHomePage = model.RecommendationHomePage;
+            retargetingSettings.RecommendationCategoryPage = model.RecommendationCategoryPage;
+            retargetingSettings.RecommendationProductPage = model.RecommendationProductPage;
+            retargetingSettings.RecommendationCheckoutPage = model.RecommendationCheckoutPage;
+            retargetingSettings.RecommendationThankYouPage = model.RecommendationThankYouPage;
+            retargetingSettings.RecommendationOutOfStockPage = model.RecommendationOutOfStockPage;
+            retargetingSettings.RecommendationSearchPage = model.RecommendationSearchPage;
+            retargetingSettings.RecommendationPageNotFound = model.RecommendationPageNotFound;
+
+            retargetingSettings.MerchantEmail = model.MerchantEmail;
+
+
             /* We do not clear cache after each setting update.
              * This behavior can increase performance because cached settings will not be cleared 
              * and loaded from database after each update */
@@ -176,6 +219,17 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToCartCatalogButtonSelector, model.AddToCartCatalogButtonSelector_OverrideForStore, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductBoxSelector, model.ProductBoxSelector_OverrideForStore, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductMainPictureIdDetailsPrefix, model.ProductMainPictureIdDetailsPrefix_OverrideForStore, storeScope, false);
+
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationHomePage, model.RecommendationHomePage_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationCategoryPage, model.RecommendationCategoryPage_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationProductPage, model.RecommendationProductPage_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationCheckoutPage, model.RecommendationCheckoutPage_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationThankYouPage, model.RecommendationThankYouPage_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationOutOfStockPage, model.RecommendationOutOfStockPage_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationSearchPage, model.RecommendationSearchPage_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationPageNotFound, model.RecommendationPageNotFound_OverrideForStore, storeScope, false);
+
+            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.MerchantEmail, model.MerchantEmail_OverrideForStore, storeScope, false);
 
             //now clear settings cache
             _settingService.ClearCache();
@@ -226,15 +280,15 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
             //save settings
             retargetingSettings.UseHttpPostInsteadOfAjaxInAddToCart = false;
-            retargetingSettings.AddToCartButtonIdDetailsPrefix = "add-to-cart-button-";
-            retargetingSettings.ProductPriceLabelDetailsSelector = ".prices";
-            retargetingSettings.AddToWishlistButtonIdDetailsPrefix = "add-to-wishlist-button-";
-            retargetingSettings.HelpTopicSystemNames = "ShippingInfo,PrivacyInfo,ConditionsOfUse,AboutUs";
-            retargetingSettings.AddToWishlistCatalogButtonSelector = ".add-to-wishlist-button";
-            retargetingSettings.ProductReviewAddedResultSelector = "div.result";
-            retargetingSettings.AddToCartCatalogButtonSelector = ".product-box-add-to-cart-button";
-            retargetingSettings.ProductBoxSelector = ".product-item";
-            retargetingSettings.ProductMainPictureIdDetailsPrefix = "main-product-img-lightbox-anchor-";
+            retargetingSettings.AddToCartButtonIdDetailsPrefix = RetargetingDefaults.AddToCartButtonIdDetailsPrefix;
+            retargetingSettings.ProductPriceLabelDetailsSelector = RetargetingDefaults.ProductPriceLabelDetailsSelector;
+            retargetingSettings.AddToWishlistButtonIdDetailsPrefix = RetargetingDefaults.AddToWishlistButtonIdDetailsPrefix;
+            retargetingSettings.HelpTopicSystemNames = RetargetingDefaults.HelpTopicSystemNames;
+            retargetingSettings.AddToWishlistCatalogButtonSelector = RetargetingDefaults.AddToWishlistCatalogButtonSelector;
+            retargetingSettings.ProductReviewAddedResultSelector = RetargetingDefaults.ProductReviewAddedResultSelector;
+            retargetingSettings.AddToCartCatalogButtonSelector = RetargetingDefaults.AddToCartCatalogButtonSelector;
+            retargetingSettings.ProductBoxSelector = RetargetingDefaults.ProductBoxSelector;
+            retargetingSettings.ProductMainPictureIdDetailsPrefix = RetargetingDefaults.ProductMainPictureIdDetailsPrefix;
 
             /* We do not clear cache after each setting update.
              * This behavior can increase performance because cached settings will not be cleared 
@@ -723,6 +777,87 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             #endregion
 
             return attributesXml;
+        }
+
+        /// <summary>
+        /// Subscribe to Retargeting news
+        /// </summary>
+        /// <param name="email">Email address</param>
+        /// <returns>True if successfully subscribed/unsubscribed, otherwise false</returns>
+        public bool SubscribeToRetargeting(string newEmail, string oldEmail)
+        {
+            try
+            {
+                //unsubscribe previous email
+                if (!string.IsNullOrEmpty(oldEmail))
+                    SendEmail(oldEmail, false);
+
+                //subscribe new email
+                if (!string.IsNullOrEmpty(newEmail))
+                    SendEmail(newEmail, true);
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                //log errors
+                var errorMessage = $"Retargeting subscription error: {exception.Message}.";
+                _logger.Error(errorMessage, exception, _workContext.CurrentCustomer);
+
+                return false;
+            }
+            return false;
+        }
+
+
+        [Area(AreaNames.Admin)]
+        [HttpPost, ActionName("Configure")]
+        [FormValueRequired("subscribe")]
+        public IActionResult Subscribe(ConfigurationModel model)
+        {
+            //if (!_permissionService.Authorize(StandardPermissionProvider.ManagePaymentMethods))
+            //    return AccessDeniedView();
+
+            //load settings
+            var settings = _settingService.LoadSetting<RetargetingSettings>();
+            if (settings.MerchantEmail == model.MerchantEmail)
+                return Configure();
+
+            //try to subscribe/unsubscribe
+            var successfullySubscribed = SubscribeToRetargeting(model.MerchantEmail, settings.MerchantEmail);
+            if (successfullySubscribed)
+            {
+                //save settings and display success notification
+                settings.MerchantEmail = model.MerchantEmail;
+                _settingService.SaveSetting(settings);
+
+                var message = !string.IsNullOrEmpty(model.MerchantEmail)
+                    ? _localizationService.GetResource("Plugins.Widgets.Retargeting.Subscribe.Success")
+                    : _localizationService.GetResource("Plugins.Widgets.Retargeting.Unsubscribe.Success");
+                SuccessNotification(message);
+            }
+            else
+                ErrorNotification(_localizationService.GetResource("Plugins.Widgets.Retargeting.Subscribe.Error"));
+
+            return Configure();
+        }
+
+        private void SendEmail(string email, bool subscribe)
+        {
+            //try to get an email account
+            var emailAccount = _emailAccountService.GetEmailAccountById(_emailAccountSettings.DefaultEmailAccountId)
+                ?? throw new NopException("Email account could not be loaded");
+
+            var subject = subscribe ? "New subscription" : "New unsubscription";
+            var body = subscribe
+                ? "nopCommerce user just left the email to receive an information about special offers from Retargeting."
+                : "nopCommerce user has canceled subscription to receive Retargeting news.";
+
+            //send email
+            _emailSender.SendEmail(emailAccount: emailAccount,
+                subject: subject, body: body,
+                fromAddress: email, fromName: RetargetingDefaults.UserAgent,
+                toAddress: RetargetingDefaults.SubscriptionEmail, toName: null);
         }
     }
 }

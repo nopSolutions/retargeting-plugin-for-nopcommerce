@@ -100,7 +100,16 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                 ProductMainPictureIdDetailsPrefix = retargetingSettings.ProductMainPictureIdDetailsPrefix,
 
                 RenderAddToCartFunc = true,
-                RenderAddToWishlistFunc = true
+                RenderAddToWishlistFunc = true,
+
+                RecommendationHomePage = retargetingSettings.RecommendationHomePage,
+                RecommendationCategoryPage = retargetingSettings.RecommendationCategoryPage,
+                RecommendationProductPage = retargetingSettings.RecommendationProductPage,
+                RecommendationCheckoutPage = retargetingSettings.RecommendationCheckoutPage,
+                RecommendationThankYouPage = retargetingSettings.RecommendationThankYouPage,
+                RecommendationOutOfStockPage = retargetingSettings.RecommendationOutOfStockPage,
+                RecommendationSearchPage = retargetingSettings.RecommendationSearchPage,
+                RecommendationPageNotFound = retargetingSettings.RecommendationPageNotFound
             };
 
             var routeData = _actionContextAccessor.ActionContext.RouteData;
@@ -290,7 +299,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                             orderModel.DiscountCode += ", ";
                     }
 
-                    var dateOfBirth = _genericAttributeService.GetAttribute<DateTime?>(order.Customer, NopCustomerDefaults.FirstNameAttribute);
+                    var dateOfBirth = _genericAttributeService.GetAttribute<DateTime?>(order.Customer, NopCustomerDefaults.DateOfBirthAttribute);
                     if (dateOfBirth.HasValue)
                         orderModel.Birthday = dateOfBirth.Value.ToString("dd-mm-yyyy");
 
@@ -353,6 +362,13 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                 }
             }
 
+            //home page
+            if (controllerName.ToString().Equals("Home", StringComparison.InvariantCultureIgnoreCase) &&
+                actionName.ToString().Equals("index", StringComparison.InvariantCultureIgnoreCase))
+            {
+                model.RenderVisitHomePageFunc = true;
+            }
+
             //checkout page
             if (controllerName.ToString().Equals("shoppingcart", StringComparison.InvariantCultureIgnoreCase) &&
                 actionName.ToString().Equals("cart", StringComparison.InvariantCultureIgnoreCase))
@@ -384,6 +400,27 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             {
                 model.AddToCartProductInfo = _httpContextAccessor.HttpContext?.Session?.Get("ra_addToCartProductInfo");
                 _httpContextAccessor.HttpContext?.Session?.Remove("ra_addToCartProductInfo");
+            }
+
+            //page not found
+            if (controllerName.ToString().Equals("Common", StringComparison.InvariantCultureIgnoreCase) &&
+                actionName.ToString().Equals("PageNotFound", StringComparison.InvariantCultureIgnoreCase))
+            {
+                model.RenderPageNotFoundFunc = true;
+            }
+
+            //send search term
+            if (controllerName.ToString().Equals("Catalog", StringComparison.InvariantCultureIgnoreCase) &&
+                actionName.ToString().Equals("Search", StringComparison.InvariantCultureIgnoreCase))
+            {
+                model.RenderSendSearchTermFunc = true;
+            }
+
+            //thank you page
+            if (controllerName.ToString().Equals("Checkout", StringComparison.InvariantCultureIgnoreCase) &&
+                actionName.ToString().Equals("Completed", StringComparison.InvariantCultureIgnoreCase))
+            {
+                model.RenderThankYouFunc = true;
             }
 
             return View("~/Plugins/Widgets.Retargeting/Views/PublicInfo.cshtml", model);

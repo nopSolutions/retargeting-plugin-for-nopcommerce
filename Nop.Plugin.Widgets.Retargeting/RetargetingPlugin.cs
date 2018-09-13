@@ -130,15 +130,26 @@ namespace Nop.Plugin.Widgets.Retargeting
             //settings
             var settings = new RetargetingSettings()
             {
-                ProductBoxSelector = ".product-item",
-                AddToCartCatalogButtonSelector = ".product-box-add-to-cart-button",
-                AddToCartButtonIdDetailsPrefix = "add-to-cart-button-",
-                AddToWishlistCatalogButtonSelector = ".add-to-wishlist-button",
-                AddToWishlistButtonIdDetailsPrefix = "add-to-wishlist-button-",
-                ProductPriceLabelDetailsSelector = ".prices",
-                ProductMainPictureIdDetailsPrefix = "main-product-img-lightbox-anchor-",
-                HelpTopicSystemNames = "ShippingInfo,PrivacyInfo,ConditionsOfUse,AboutUs",
-                ProductReviewAddedResultSelector = "div.result",
+                ProductBoxSelector = RetargetingDefaults.ProductBoxSelector,
+                AddToCartCatalogButtonSelector = RetargetingDefaults.AddToCartCatalogButtonSelector,
+                AddToCartButtonIdDetailsPrefix = RetargetingDefaults.AddToCartButtonIdDetailsPrefix,
+                AddToWishlistCatalogButtonSelector = RetargetingDefaults.AddToWishlistCatalogButtonSelector,
+                AddToWishlistButtonIdDetailsPrefix = RetargetingDefaults.AddToWishlistButtonIdDetailsPrefix,
+                ProductPriceLabelDetailsSelector = RetargetingDefaults.ProductPriceLabelDetailsSelector,
+                ProductMainPictureIdDetailsPrefix = RetargetingDefaults.ProductMainPictureIdDetailsPrefix,
+                HelpTopicSystemNames = RetargetingDefaults.HelpTopicSystemNames,
+                ProductReviewAddedResultSelector = RetargetingDefaults.ProductReviewAddedResultSelector,
+
+                MerchantEmail = "",
+
+                RecommendationHomePage = false,
+                RecommendationCategoryPage = false,
+                RecommendationProductPage = false,
+                RecommendationCheckoutPage  = false,
+                RecommendationThankYouPage = false,
+                RecommendationOutOfStockPage = false,
+                RecommendationSearchPage = false,
+                RecommendationPageNotFound = false
             };
             _settingService.SaveSetting(settings);
 
@@ -177,6 +188,31 @@ namespace Nop.Plugin.Widgets.Retargeting
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector.Hint", "Product review added result selector.");
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.DiscountTypeNote", "Note: Retargeting can generate discounts through it's API. One of the generated discount types is Custom. We allow Retargeting to generate only Free Shipping discount as a Custom discount type.");
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.CustomizationNote", "Note: this plugin may work incorrectly in case you made some customization of your website.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.SubscribeRetargeting", "Please enter your email to receive an information about special offers from Retargeting.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe", "Subscribe");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.MerchantEmail", "Email");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.MerchantEmail.Hint", "Enter your email to subscribe to Retargeting news.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe.Error", "An error has occurred, details in the log");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe.Success", "You have subscribed to Retargeting news");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.Unsubscribe.Success", "You have unsubscribed from Retargeting news");
+
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationHomePage", "Recommendation for Home page");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationHomePage.Hint", "To use Retargeting Recommendation Engine for Home page.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCategoryPage", "Recommendation for Category page");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCategoryPage.Hint", "To use Retargeting Recommendation Engine for Category page.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationProductPage", "Recommendation for Product page");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationProductPage.Hint", "To use Retargeting Recommendation Engine for Product page.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCheckoutPage", "Recommendation for Checkout page");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCheckoutPage.Hint", "To use Retargeting Recommendation Engine for Checkout page.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationThankYouPage", "Recommendation for Thank You Page");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationThankYouPage.Hint", "To use Retargeting Recommendation Engine for Thank You page.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationOutOfStockPage", "Recommendation for Out Of Stock page");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationOutOfStockPage.Hint", "To use Retargeting Recommendation Engine for Out Of Stock page.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationSearchPage", "Recommendation for Search page");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationSearchPage.Hint", "To use Retargeting Recommendation Engine for Search page.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationPageNotFound", "Recommendation for Page Not Found");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationPageNotFound.Hint", "To use Retargeting Recommendation Engine for Page Not Found.");
+
 
             base.Install();
         }
@@ -224,6 +260,30 @@ namespace Nop.Plugin.Widgets.Retargeting
             _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector.Hint");
             _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.DiscountTypeNote");
             _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.CustomizationNote");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.SubscribeRetargeting");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.MerchantEmail");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.MerchantEmail.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe.Error");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe.Success");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.Unsubscribe.Success");
+
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationHomePage");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationHomePage.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCategoryPage");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCategoryPage.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationProductPage");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationProductPage.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCheckoutPage");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCheckoutPage.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationThankYouPage");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationThankYouPage.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationOutOfStockPage");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationOutOfStockPage.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationSearchPage");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationSearchPage.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationPageNotFound");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationPageNotFound.Hint");
 
             base.Uninstall();
         }

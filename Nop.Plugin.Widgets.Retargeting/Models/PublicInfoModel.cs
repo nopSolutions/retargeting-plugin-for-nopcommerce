@@ -12,7 +12,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Models
             CustomerModel = new CustomerModel();
             CartItemsToDelete = new Dictionary<int, Dictionary<string, string>>();
         }
-        
+
         public string TrackingApiKey { get; set; }
 
         public int ProductId { get; set; }
@@ -73,7 +73,36 @@ namespace Nop.Plugin.Widgets.Retargeting.Models
 
         public bool RenderVisitHelpPageFunc { get; set; }
 
+        public bool RenderVisitHomePageFunc { get; set; }
+
         public bool RenderCheckoutIdsFunc { get; set; }
+
+        public bool RenderPageNotFoundFunc { get; set; }
+
+        public bool RenderSendSearchTermFunc { get; set; }
+
+        public bool RenderThankYouFunc { get; set; }
+
+        #endregion
+
+        #region Recomendation
+
+        public bool RecommendationHomePage { get; set; }
+
+        public bool RecommendationCategoryPage { get; set; }
+
+        public bool RecommendationProductPage { get; set; }
+
+        public bool RecommendationCheckoutPage { get; set; }
+
+        public bool RecommendationThankYouPage { get; set; }
+
+        public bool RecommendationOutOfStockPage { get; set; }
+
+        public bool RecommendationSearchPage { get; set; }
+
+        public bool RecommendationPageNotFound { get; set; }
+
 
         #endregion
     }
