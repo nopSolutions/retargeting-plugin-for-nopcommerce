@@ -50,45 +50,45 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache
 
         public ModelCacheEventConsumer(IStaticCacheManager cacheManager)
         {
-            this._cacheManager = cacheManager;
+            _cacheManager = cacheManager;
         }
 
         //languages
         public void HandleEvent(EntityInsertedEvent<Language> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
         public void HandleEvent(EntityUpdatedEvent<Language> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
         public void HandleEvent(EntityDeletedEvent<Language> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
 
         //manufacturers
         public void HandleEvent(EntityUpdatedEvent<Manufacturer> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
         public void HandleEvent(EntityDeletedEvent<Manufacturer> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
 
         //product manufacturers
         public void HandleEvent(EntityInsertedEvent<ProductManufacturer> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
         public void HandleEvent(EntityUpdatedEvent<ProductManufacturer> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
         public void HandleEvent(EntityDeletedEvent<ProductManufacturer> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
         }
     }
 }

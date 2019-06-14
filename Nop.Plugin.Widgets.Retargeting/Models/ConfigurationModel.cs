@@ -24,6 +24,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Models
         public bool UseHttpPostInsteadOfAjaxInAddToCart { get; set; }
         public bool UseHttpPostInsteadOfAjaxInAddToCart_OverrideForStore { get; set; }
 
+        public bool HideConfigurationBlock { get; set; }
+        public bool HidePreconfigureBlock { get; set; }
+
         [NopResourceDisplayName("Plugins.Widgets.Retargeting.AddToCartButtonIdDetailsPrefix")]
         public string AddToCartButtonIdDetailsPrefix { get; set; }
         public bool AddToCartButtonDetailsPrefix_OverrideForStore { get; set; }

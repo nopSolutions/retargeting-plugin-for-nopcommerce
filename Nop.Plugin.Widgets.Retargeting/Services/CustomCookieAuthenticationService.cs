@@ -5,14 +5,14 @@ using Microsoft.AspNetCore.Http;
 
 namespace Nop.Plugin.Widgets.Retargeting.Services
 {
-    public class CustomCookieAuthenticationService: CookieAuthenticationService
+    public class CustomCookieAuthenticationService : CookieAuthenticationService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public CustomCookieAuthenticationService( CustomerSettings customerSettings, ICustomerService customerService, IHttpContextAccessor httpContextAccessor) 
+        public CustomCookieAuthenticationService(CustomerSettings customerSettings, ICustomerService customerService, IHttpContextAccessor httpContextAccessor)
             : base(customerSettings, customerService, httpContextAccessor)
         {
-            this._httpContextAccessor = httpContextAccessor;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public override void SignIn(Customer customer, bool createPersistentCookie)

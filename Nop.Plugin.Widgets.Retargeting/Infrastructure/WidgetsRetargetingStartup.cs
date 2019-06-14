@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +19,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure
         /// <param name="configuration">Configuration root of the application</param>
         public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
         {
-            services.Configure<MvcOptions>(congig => {congig.Filters.Add(new RetargetingAddToCartFilterAttribute());
+            services.Configure<MvcOptions>(congig =>
+            {
+                congig.Filters.Add(new RetargetingAddToCartFilterAttribute());
             });
         }
 
@@ -34,9 +36,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure
         /// <summary>
         /// Order of this dependency registrar implementation
         /// </summary>
-        public int Order
-        {
-            get { return 9999; }
-        }
+        public int Order => 9999;
     }
 }

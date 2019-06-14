@@ -3,11 +3,13 @@
 }
 @model Nop.Plugin.Widgets.Retargeting.Models.ConfigurationModel
 
+@using Nop.Plugin.Widgets.Retargeting;
+
 @await Component.InvokeAsync("StoreScopeConfiguration")
 
 <form asp-controller="WidgetsRetargeting" asp-action="Configure" method="post">
-    <nop-tabs id="retargeting-configure">
-        <nop-tab asp-name="tab-configuration" asp-title=" @T("Plugins.Widgets.Retargeting.Configuration")" asp-default="true">@await Html.PartialAsync("~/Plugins/Widgets.Retargeting/Views/_Configure.Configuration.cshtml", Model)</nop-tab>
-        <nop-tab asp-name="tab-preconfigure" asp-title="@T("Plugins.Widgets.Retargeting.PreconfigureSystem")" class="advanced-setting">@await Html.PartialAsync("~/Plugins/Widgets.Retargeting/Views/_Configure.Preconfigure.cshtml", Model)</nop-tab>
-    </nop-tabs>
+    <nop-panels id="retargeting-configure">
+        <nop-panel asp-name="retargeting-configuration" asp-icon="fa fa-info" asp-title=" @T("Plugins.Widgets.Retargeting.Configuration")" asp-hide-block-attribute-name="@RetargetingDefaults.HideConfigurationBlock" asp-hide="@Model.HideConfigurationBlock" asp-advanced="false">@await Html.PartialAsync("~/Plugins/Widgets.Retargeting/Views/_Configure.Configuration.cshtml", Model)</nop-panel>
+        <nop-panel asp-name="retargeting-preconfigure" asp-icon="fa fa-exchange" asp-title="@T("Plugins.Widgets.Retargeting.PreconfigureSystem")" asp-hide-block-attribute-name="@RetargetingDefaults.HidePreconfigureBlock" asp-hide="@Model.HidePreconfigureBlock" asp-advanced="false">@await Html.PartialAsync("~/Plugins/Widgets.Retargeting/Views/_Configure.Preconfigure.cshtml", Model)</nop-panel>
+    </nop-panels>
 </form>

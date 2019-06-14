@@ -1,11 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Nop.Plugin.Widgets.Retargeting
+﻿namespace Nop.Plugin.Widgets.Retargeting
 {
     public static class RetargetingDefaults
     {
+        /// <summary>
+        /// Retargeting system name
+        /// </summary>
+        public static string SystemName => "Widgets.Retargeting";
+
+        /// <summary>
+        /// Name of the view component to display widget in public store
+        /// </summary>
+        public const string RETARGETING_VIEW_COMPONENT_NAME = "WidgetsRetargeting";
+
+        /// <summary>
+        /// Generic attribute name to hide configuration settings block on the plugin configuration page
+        /// </summary>
+        public static string HideConfigurationBlock = "RetargetingPage.HideConfigurationBlock";
+
+        /// <summary>
+        /// Generic attribute name to hide preconfiguration system block on the plugin configuration page
+        /// </summary>
+        public static string HidePreconfigureBlock = "RetargetingPage.HidePreconfigureBlock";
+
         public static string RecommendationHomePage => "retargeting-recommeng-home-page";
 
         public static string RecommendationCategoryPage => "retargeting-recommeng-category-page";

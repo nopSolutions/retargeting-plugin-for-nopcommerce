@@ -15,6 +15,7 @@ using Nop.Core.Domain.Orders;
 using Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache;
 using Nop.Plugin.Widgets.Retargeting.Models;
 using Nop.Services.Catalog;
+using Nop.Services.Common;
 using Nop.Services.Configuration;
 using Nop.Services.Discounts;
 using Nop.Services.Localization;
@@ -29,7 +30,6 @@ using Nop.Web.Framework.Controllers;
 using Nop.Web.Framework.Mvc;
 using Nop.Web.Framework.Mvc.Filters;
 using Nop.Web.Framework.Security;
-using Nop.Web.Framework.UI;
 
 namespace Nop.Plugin.Widgets.Retargeting.Controllers
 {
@@ -41,11 +41,13 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         private readonly IDiscountService _discountService;
         private readonly IEmailAccountService _emailAccountService;
         private readonly IEmailSender _emailSender;
+        private readonly IGenericAttributeService _genericAttributeService;
         private readonly ILocalizationService _localizationService;
         private readonly ILogger _logger;
         private readonly IManufacturerService _manufacturerService;
+        private readonly INotificationService _notificationService;
         private readonly IPictureService _pictureService;
-        private readonly IPluginFinder _pluginFinder;
+        private readonly IPluginService _pluginService;
         private readonly IProductAttributeParser _productAttributeParser;
         private readonly IProductAttributeService _productAttributeService;
         private readonly IProductService _productService;
@@ -62,11 +64,13 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             IDiscountService discountService,
             IEmailAccountService emailAccountService,
             IEmailSender emailSender,
+            IGenericAttributeService genericAttributeService,
             ILocalizationService localizationService,
             ILogger logger,
             IManufacturerService manufacturerService,
+            INotificationService notificationService,
             IPictureService pictureService,
-            IPluginFinder pluginFinder,
+            IPluginService pluginService,
             IProductAttributeParser productAttributeParser,
             IProductAttributeService productAttributeService,
             IProductService productService,
@@ -83,11 +87,13 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             _discountService = discountService;
             _emailAccountService = emailAccountService;
             _emailSender = emailSender;
+            _genericAttributeService = genericAttributeService;
             _localizationService = localizationService;
             _logger = logger;
             _manufacturerService = manufacturerService;
+            _notificationService = notificationService;
             _pictureService = pictureService;
-            _pluginFinder = pluginFinder;
+            _pluginService = pluginService;
             _productAttributeParser = productAttributeParser;
             _productAttributeService = productAttributeService;
             _productService = productService;
@@ -130,10 +136,15 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 RecommendationSearchPage = retargetingSettings.RecommendationSearchPage,
                 RecommendationPageNotFound = retargetingSettings.RecommendationPageNotFound,
 
+                HideConfigurationBlock = _genericAttributeService.GetAttribute<bool>(_workContext.CurrentCustomer, RetargetingDefaults.HideConfigurationBlock),
+                HidePreconfigureBlock = _genericAttributeService.GetAttribute<bool>(_workContext.CurrentCustomer, RetargetingDefaults.HidePreconfigureBlock),
+
                 MerchantEmail = retargetingSettings.MerchantEmail,
 
                 ActiveStoreScopeConfiguration = storeScope
             };
+
+            
 
             if (storeScope > 0)
             {
@@ -234,7 +245,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             //now clear settings cache
             _settingService.ClearCache();
 
-            SuccessNotification(_localizationService.GetResource("Admin.Plugins.Saved"));
+            _notificationService.SuccessNotification(_localizationService.GetResource("Admin.Plugins.Saved"));
 
             return Configure();
         }
@@ -244,29 +255,30 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         [FormValueRequired("preconfigure")]
         public IActionResult Preconfigure()
         {
-            var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
-            if (pluginDescriptor == null)
-                throw new Exception("Cannot load the plugin");
-
-            var plugin = pluginDescriptor.Instance() as RetargetingPlugin;
-            if (plugin == null)
-                throw new Exception("Cannot load the plugin");
-
-            try
+            var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
+            if (pluginDescriptor != null)
             {
-                plugin.Preconfigure();
-                var message = _localizationService.GetResource("Plugins.Widgets.Retargeting.PreconfigureCompleted");
-                AddNotification(NotifyType.Success, message, true);
-                _logger.Information(message);
-            }
-            catch (Exception exception)
-            {
-                var message = _localizationService.GetResource("Plugins.Widgets.Retargeting.PreconfigureError") + exception;
-                AddNotification(NotifyType.Error, message, true);
-                _logger.Error(message);
+                if (pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin)
+                {
+                    try
+                    {
+                        plugin.Preconfigure();
+                        var message = _localizationService.GetResource("Plugins.Widgets.Retargeting.PreconfigureCompleted");
+                        _notificationService.SuccessNotification(message);
+                        _logger.Information(message);
+                    }
+                    catch (Exception exception)
+                    {
+                        var message = _localizationService.GetResource("Plugins.Widgets.Retargeting.PreconfigureError") + exception;
+                        _notificationService.ErrorNotification(message);
+                        _logger.Error(message);
+                    }
+
+                    return Configure();
+                }
             }
 
-            return Configure();
+            throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
         }
 
         [Area(AreaNames.Admin)]
@@ -307,7 +319,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             //now clear settings cache
             _settingService.ClearCache();
 
-            SuccessNotification(_localizationService.GetResource("Plugins.Widgets.Retargeting.SettingsReset"));
+            _notificationService.SuccessNotification(_localizationService.GetResource("Plugins.Widgets.Retargeting.SettingsReset"));
 
             return Configure();
         }
@@ -318,19 +330,18 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             var productFeed = new object();
             try
             {
-                var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
-                if (pluginDescriptor == null)
-                    throw new Exception("Cannot load the plugin");
+                var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
+                if (pluginDescriptor != null)
+                {
+                    if (pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin)
+                        productFeed = plugin.GenerateProductStockFeed();
+                }
 
-                var plugin = pluginDescriptor.Instance() as RetargetingPlugin;
-                if (plugin == null)
-                    throw new Exception("Cannot load the plugin");
-
-                productFeed = plugin.GenerateProductStockFeed();
+                throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
             }
             catch (Exception exc)
             {
-                ErrorNotification(exc.Message);
+                _notificationService.ErrorNotification(exc.Message);
                 _logger.Error(exc.Message, exc);
             }
 
@@ -345,8 +356,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             var retargetingSettings = _settingService.LoadSetting<RetargetingSettings>(_storeContext.CurrentStore.Id);
             if (retargetingSettings.RestApiKey.Equals(key))
             {
-                decimal discountValue;
-                decimal.TryParse(value, out discountValue);
+                decimal.TryParse(value, out var discountValue);
 
                 if (discountValue > 0)
                 {
@@ -406,13 +416,12 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
             try
             {
-                var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
+                var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
                 if (pluginDescriptor == null)
-                    throw new Exception("Cannot load the plugin");
+                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
-                var plugin = pluginDescriptor.Instance() as RetargetingPlugin;
-                if (plugin == null)
-                    throw new Exception("Cannot load the plugin");
+                if (!(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
+                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
                 var product = _productService.GetProductById(productId);
                 if (product == null)
@@ -425,9 +434,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 productInfo.Add("url", string.Format("{0}{1}", _storeContext.CurrentStore.Url, _urlRecordService.GetSeName(product)));
                 productInfo.Add("img", GetProductImageUrl(product));
 
-                decimal price;
-                decimal priceWithDiscount;
-                plugin.GetProductPrice(product, out price, out priceWithDiscount);
+                plugin.GetProductPrice(product, out var price, out var priceWithDiscount);
 
                 if (price == 0)
                     price = 1;
@@ -664,7 +671,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             }
             catch (Exception exc)
             {
-                ErrorNotification(exc.Message);
+                _notificationService.ErrorNotification(exc.Message);
                 _logger.Error(exc.Message, exc);
             }
 
@@ -681,20 +688,13 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             if (product == null)
                 return new NullJsonResult();
 
-            var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
-            if (pluginDescriptor == null)
-                throw new Exception("Cannot load the plugin");
-
-            var plugin = pluginDescriptor.Instance() as RetargetingPlugin;
-            if (plugin == null)
-                throw new Exception("Cannot load the plugin");
+            var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
+            if (pluginDescriptor == null || !(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
+                throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
             var attributeXml = ParseProductAttributes(product, form);
 
-            string variationCode;
-            Dictionary<string, object> variationDetails;
-
-            var productIsInStock = plugin.IsProductCombinationInStock(product, attributeXml, out variationCode, out variationDetails);
+            var productIsInStock = plugin.IsProductCombinationInStock(product, attributeXml, out var variationCode, out var variationDetails);
 
             return Json(new
             {
@@ -706,14 +706,14 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
         private string ParseProductAttributes(Product product, IFormCollection form)
         {
-            string attributesXml = "";
+            var attributesXml = "";
 
             #region Product attributes
 
             var productAttributes = _productAttributeService.GetProductAttributeMappingsByProductId(product.Id);
             foreach (var attribute in productAttributes)
             {
-                string controlId = string.Format("product_attribute_{0}", attribute.Id);
+                var controlId = string.Format("product_attribute_{0}", attribute.Id);
                 switch (attribute.AttributeControlType)
                 {
                     case AttributeControlType.DropdownList:
@@ -724,7 +724,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                             var ctrlAttributes = form[controlId];
                             if (!string.IsNullOrEmpty(ctrlAttributes))
                             {
-                                int selectedAttributeId = int.Parse(ctrlAttributes);
+                                var selectedAttributeId = int.Parse(ctrlAttributes);
                                 if (selectedAttributeId > 0)
                                     attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
                                         attribute, selectedAttributeId.ToString());
@@ -734,11 +734,11 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                     case AttributeControlType.Checkboxes:
                         {
                             var ctrlAttributes = form[controlId].ToString();
-                            if (!String.IsNullOrEmpty(ctrlAttributes))
+                            if (!string.IsNullOrEmpty(ctrlAttributes))
                             {
                                 foreach (var item in ctrlAttributes.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
                                 {
-                                    int selectedAttributeId = int.Parse(item);
+                                    var selectedAttributeId = int.Parse(item);
                                     if (selectedAttributeId > 0)
                                         attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
                                             attribute, selectedAttributeId.ToString());
@@ -806,7 +806,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
                 return false;
             }
-            return false;
         }
 
 
@@ -834,10 +833,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 var message = !string.IsNullOrEmpty(model.MerchantEmail)
                     ? _localizationService.GetResource("Plugins.Widgets.Retargeting.Subscribe.Success")
                     : _localizationService.GetResource("Plugins.Widgets.Retargeting.Unsubscribe.Success");
-                SuccessNotification(message);
+                _notificationService.SuccessNotification(message);
             }
             else
-                ErrorNotification(_localizationService.GetResource("Plugins.Widgets.Retargeting.Subscribe.Error"));
+                _notificationService.ErrorNotification(_localizationService.GetResource("Plugins.Widgets.Retargeting.Subscribe.Error"));
 
             return Configure();
         }

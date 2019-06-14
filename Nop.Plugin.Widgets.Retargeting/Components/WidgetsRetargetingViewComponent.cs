@@ -25,62 +25,58 @@ using OrderItem = Nop.Plugin.Widgets.Retargeting.Models.OrderItem;
 
 namespace Nop.Plugin.Widgets.Retargeting.Components
 {
-    [ViewComponent(Name = "WidgetsRetargeting")]
+    [ViewComponent(Name = RetargetingDefaults.RETARGETING_VIEW_COMPONENT_NAME)]
     public class WidgetsRetargetingViewComponent : NopViewComponent
     {
-        private readonly ITopicService _topicService;
-        private readonly IOrderService _orderService;
-        private readonly ISettingService _settingService;
-        private readonly IProductService _productService;
-        private readonly IDiscountService _discountService;
+        private readonly IActionContextAccessor _actionContextAccessor;
         private readonly ICategoryService _categoryService;
         private readonly ICustomerService _customerService;
-        private readonly IManufacturerService _manufacturerService;
-
+        private readonly IDiscountService _discountService;
         private readonly IGenericAttributeService _genericAttributeService;
-        private readonly IWorkContext _workContext;
-        private readonly IStoreContext _storeContext;
-        private readonly IProductAttributeParser _productAttributeParser;
-
-        private readonly MediaSettings _mediaSettings;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IActionContextAccessor _actionContextAccessor;
+        private readonly IManufacturerService _manufacturerService;
+        private readonly IOrderService _orderService;
+        private readonly IProductAttributeParser _productAttributeParser;
+        private readonly IProductService _productService;
+        private readonly ISettingService _settingService;
+        private readonly IStoreContext _storeContext;
+        private readonly ITopicService _topicService;
+        private readonly IWorkContext _workContext;
+        private readonly MediaSettings _mediaSettings;
 
-        public WidgetsRetargetingViewComponent(ITopicService topicService,
-            IOrderService orderService,
-            ISettingService settingService,
-            IProductService productService,
-            IDiscountService discountService,
+        public WidgetsRetargetingViewComponent(
+            IActionContextAccessor actionContextAccessor,
             ICategoryService categoryService,
             ICustomerService customerService,
-            IManufacturerService manufacturerService,
-
+            IDiscountService discountService,
             IGenericAttributeService genericAttributeService,
-            IWorkContext workContext,
-            IStoreContext storeContext,
-            IProductAttributeParser productAttributeParser,
-
-            MediaSettings mediaSettings,
             IHttpContextAccessor httpContextAccessor,
-            IActionContextAccessor actionContextAccessor)
+            IManufacturerService manufacturerService,
+            IOrderService orderService,
+            IProductService productService,
+            IProductAttributeParser productAttributeParser,
+            ISettingService settingService,
+            IStoreContext storeContext,
+            ITopicService topicService,
+            IWorkContext workContext,
+            MediaSettings mediaSettings
+            )
         {
-            _topicService = topicService;
-            _orderService = orderService;
-            _settingService = settingService;
-            _productService = productService;
-            _discountService = discountService;
+            _actionContextAccessor = actionContextAccessor;
             _categoryService = categoryService;
             _customerService = customerService;
-            _manufacturerService = manufacturerService;
-
+            _discountService = discountService;
             _genericAttributeService = genericAttributeService;
-            _workContext = workContext;
-            _storeContext = storeContext;
-            _productAttributeParser = productAttributeParser;
-
-            _mediaSettings = mediaSettings;
             _httpContextAccessor = httpContextAccessor;
-            _actionContextAccessor = actionContextAccessor;
+            _manufacturerService = manufacturerService;
+            _orderService = orderService;
+            _productService = productService;
+            _productAttributeParser = productAttributeParser;
+            _settingService = settingService;
+            _storeContext = storeContext;
+            _topicService = topicService;
+            _workContext = workContext;
+            _mediaSettings = mediaSettings;
         }
 
         public IViewComponentResult Invoke(string widgetZone, object additionalData)
@@ -163,8 +159,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             {
                 model.RenderSendCategoryFunc = true;
 
-                int categoryId;
-                if (routeData.Values.ContainsKey("categoryid") && int.TryParse(routeData.Values["categoryid"].ToString(), out categoryId) && categoryId > 0)
+                if (routeData.Values.ContainsKey("categoryid") && int.TryParse(routeData.Values["categoryid"].ToString(), out var categoryId) && categoryId > 0)
                 {
                     var category = _categoryService.GetCategoryById(categoryId);
                     if (category != null)
@@ -200,9 +195,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             {
                 model.RenderSendBrandFunc = true;
 
-                int manufacturerId = 0;
                 if (routeData.Values.ContainsKey("manufacturerid") &&
-                    int.TryParse(routeData.Values["manufacturerid"].ToString(), out manufacturerId) &&
+                    int.TryParse(routeData.Values["manufacturerid"].ToString(), out var manufacturerId) &&
                     manufacturerId > 0)
                 {
                     var manufacturer = _manufacturerService.GetManufacturerById(manufacturerId);
@@ -225,9 +219,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             {
                 model.RenderSendProductFunc = true;
 
-                int productId = 0;
                 if (routeData.Values.ContainsKey("productid") &&
-                    int.TryParse(routeData.Values["productid"].ToString(), out productId) &&
+                    int.TryParse(routeData.Values["productid"].ToString(), out var productId) &&
                     productId > 0)
                 {
                     var product = _productService.GetProductById(productId);
@@ -243,10 +236,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             if (controllerName.ToString().Equals("checkout", StringComparison.InvariantCultureIgnoreCase) &&
                 actionName.ToString().Equals("completed", StringComparison.InvariantCultureIgnoreCase))
             {
-                int orderId = 0;
                 Order order;
                 if (routeData.Values.ContainsKey("orderid") &&
-                    int.TryParse(routeData.Values["orderid"].ToString(), out orderId) &&
+                    int.TryParse(routeData.Values["orderid"].ToString(), out var orderId) &&
                     orderId > 0)
                 {
                     order = _orderService.GetOrderById(orderId);
@@ -337,9 +329,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             {
                 model.RenderCommentOnProductFunc = true;
 
-                int productId = 0;
                 if (routeData.Values.ContainsKey("productid") &&
-                    int.TryParse(routeData.Values["productid"].ToString(), out productId))
+                    int.TryParse(routeData.Values["productid"].ToString(), out var productId))
                 {
                     model.ProductId = productId;
                 }
@@ -349,9 +340,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             if (controllerName.ToString().Equals("topic", StringComparison.InvariantCultureIgnoreCase) &&
                 actionName.ToString().Equals("topicdetails", StringComparison.InvariantCultureIgnoreCase))
             {
-                int topicId = 0;
                 if (routeData.Values.ContainsKey("topicid") &&
-                    int.TryParse(routeData.Values["topicid"].ToString(), out topicId))
+                    int.TryParse(routeData.Values["topicid"].ToString(), out var topicId))
                 {
                     var systemNames = retargetingSettings.HelpTopicSystemNames.Split(Convert.ToChar(",")).Select(s => s.Trim()).ToList();
                     var topic = _topicService.GetTopicById(topicId);
@@ -377,7 +367,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
 
                 var cart = _workContext.CurrentCustomer.ShoppingCartItems
                     .Where(sci => sci.ShoppingCartType == ShoppingCartType.ShoppingCart)
-                    .LimitPerStore(_storeContext.CurrentStore.Id)
+                    .Where(item => item.StoreId == _storeContext.CurrentStore.Id)
                     .ToList();
 
                 foreach (var cartItem in cart)
@@ -389,7 +379,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
 
             //remove from cart
             var items = _httpContextAccessor.HttpContext?.Session?.Get<Dictionary<int, Dictionary<string, string>>>("ra_shoppingCartItemsToDelete");
-            if(items == null)
+            if (items == null)
                 items = new Dictionary<int, Dictionary<string, string>>();
 
             model.CartItemsToDelete = items;

@@ -1,13 +1,12 @@
 ﻿@using Newtonsoft.Json;
 @using Nop.Core.Domain.Orders
 @using Nop.Plugin.Widgets.Retargeting
-@using Nop.Plugin.Widgets.Retargeting.Models
 @model Nop.Plugin.Widgets.Retargeting.Models.PublicInfoModel
 @{
     Layout = "";
 }
 
-<script>
+<script asp-location="Footer">
     var add_to_cart_button_id = "";
     var price_label_id = "";
     @if (Model.ProductId > 0)

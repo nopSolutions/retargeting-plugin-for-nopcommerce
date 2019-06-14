@@ -29,10 +29,11 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
 {
     public class CustomOrderProcessingService : OrderProcessingService
     {
-        private readonly IPluginFinder _pluginFinder;
+        private readonly ILocalizationService _localizationService;
+        private readonly IPluginService _pluginService;
 
         public CustomOrderProcessingService(
-            IPluginFinder pluginFinder,
+            IPluginService pluginService,
 
             CurrencySettings currencySettings,
             IAffiliateService affiliateService,
@@ -52,6 +53,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             ILogger logger,
             IOrderService orderService,
             IOrderTotalCalculationService orderTotalCalculationService,
+            IPaymentPluginManager paymentPluginManager,
             IPaymentService paymentService,
             IPdfService pdfService,
             IPriceCalculationService priceCalculationService,
@@ -61,9 +63,11 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             IProductService productService,
             IRewardPointService rewardPointService,
             IShipmentService shipmentService,
+            IShippingPluginManager shippingPluginManager,
             IShippingService shippingService,
             IShoppingCartService shoppingCartService,
             IStateProvinceService stateProvinceService,
+            IStoreContext storeContext,
             ITaxService taxService,
             IVendorService vendorService,
             IWebHelper webHelper,
@@ -75,16 +79,55 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             RewardPointsSettings rewardPointsSettings,
             ShippingSettings shippingSettings,
             TaxSettings taxSettings) :
-            base(currencySettings, affiliateService, checkoutAttributeFormatter, countryService, currencyService, customerActivityService,
-                customerService, customNumberFormatter, discountService, encryptionService, eventPublisher,
-                genericAttributeService, giftCardService, languageService, localizationService,
-                logger, orderService, orderTotalCalculationService, paymentService, pdfService, priceCalculationService,
-                priceFormatter, productAttributeFormatter, productAttributeParser, productService, rewardPointService,
-                shipmentService, shippingService, shoppingCartService, stateProvinceService, taxService, vendorService,
-                webHelper, workContext, workflowMessageService, localizationSettings, orderSettings, paymentSettings,
-                rewardPointsSettings, shippingSettings, taxSettings)
+            base(
+                currencySettings,
+                affiliateService,
+                checkoutAttributeFormatter,
+                countryService,
+                currencyService,
+                customerActivityService,
+                customerService,
+                customNumberFormatter,
+                discountService,
+                encryptionService,
+                eventPublisher,
+                genericAttributeService,
+                giftCardService,
+                languageService,
+                localizationService,
+                logger,
+                orderService,
+                orderTotalCalculationService,
+                paymentPluginManager,
+                paymentService,
+                pdfService,
+                priceCalculationService,
+                priceFormatter,
+                productAttributeFormatter,
+                productAttributeParser,
+                productService,
+                rewardPointService,
+                shipmentService,
+                shippingPluginManager,
+                shippingService,
+                shoppingCartService,
+                stateProvinceService,
+                storeContext,
+                taxService,
+                vendorService,
+                webHelper,
+                workContext,
+                workflowMessageService,
+                localizationSettings,
+                orderSettings,
+                paymentSettings,
+                rewardPointsSettings,
+                shippingSettings,
+                taxSettings
+            )
         {
-            _pluginFinder = pluginFinder;
+            _localizationService = localizationService;
+            _pluginService = pluginService;
         }
 
         public override PlaceOrderResult PlaceOrder(ProcessPaymentRequest processPaymentRequest)
@@ -93,13 +136,12 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
 
             if (placeOrderResult.Success)
             {
-                var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
+                var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
                 if (pluginDescriptor == null)
-                    throw new Exception("Cannot load the plugin");
+                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
-                var plugin = pluginDescriptor.Instance() as RetargetingPlugin;
-                if (plugin == null)
-                    throw new Exception("Cannot load the plugin");
+                if (!(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
+                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
                 plugin.SendOrder(placeOrderResult.PlacedOrder.Id);
             }

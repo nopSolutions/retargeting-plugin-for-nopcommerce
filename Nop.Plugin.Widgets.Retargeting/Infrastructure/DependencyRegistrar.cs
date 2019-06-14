@@ -1,4 +1,4 @@
-using Autofac;
+﻿using Autofac;
 using Nop.Core.Configuration;
 using Nop.Core.Infrastructure;
 using Nop.Core.Infrastructure.DependencyManagement;
@@ -29,9 +29,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure
         /// <summary>
         /// Order of this dependency registrar implementation
         /// </summary>
-        public int Order
-        {
-            get { return 2; }
-        }
+        public int Order => 2;
     }
 }

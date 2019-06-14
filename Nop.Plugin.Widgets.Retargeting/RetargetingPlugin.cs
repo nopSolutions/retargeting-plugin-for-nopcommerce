@@ -10,7 +10,6 @@ using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Media;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Tax;
-using Nop.Core.Plugins;
 using Nop.Services.Catalog;
 using Nop.Services.Cms;
 using Nop.Services.Configuration;
@@ -21,12 +20,15 @@ using Nop.Services.Orders;
 using Nop.Services.Security;
 using Nop.Services.Tax;
 using Nop.Services.Logging;
-
+using Nop.Services.Plugins;
+using Nop.Web.Framework.Infrastructure;
 
 namespace Nop.Plugin.Widgets.Retargeting
 {
     public class RetargetingPlugin : BasePlugin, IWidgetPlugin
     {
+        #region Fields
+
         private readonly ITaxService _taxService;
         private readonly IOrderService _orderService;
         private readonly ISettingService _settingService;
@@ -48,6 +50,10 @@ namespace Nop.Plugin.Widgets.Retargeting
         private readonly ShoppingCartSettings _shoppingCartSettings;
         private readonly OrderSettings _orderSettings;
         private readonly MediaSettings _mediaSettings;
+
+        #endregion
+
+        #region Ctor
 
         public RetargetingPlugin(
             ITaxService taxService,
@@ -95,13 +101,17 @@ namespace Nop.Plugin.Widgets.Retargeting
             _mediaSettings = mediaSettings;
         }
 
+        #endregion
+
+        #region Methods
+
         /// <summary>
         /// Gets widget zones where this widget should be rendered
         /// </summary>
         /// <returns>Widget zones</returns>
         public IList<string> GetWidgetZones()
         {
-            return new List<string>() { "content_before" };
+            return new List<string>() { PublicWidgetZones.ContentBefore };
         }
 
         /// <summary>
@@ -119,7 +129,7 @@ namespace Nop.Plugin.Widgets.Retargeting
         /// <returns>View component name</returns>
         public string GetWidgetViewComponentName(string widgetZone)
         {
-            return "WidgetsRetargeting";
+            return RetargetingDefaults.RETARGETING_VIEW_COMPONENT_NAME;
         }
 
         /// <summary>
@@ -145,7 +155,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                 RecommendationHomePage = false,
                 RecommendationCategoryPage = false,
                 RecommendationProductPage = false,
-                RecommendationCheckoutPage  = false,
+                RecommendationCheckoutPage = false,
                 RecommendationThankYouPage = false,
                 RecommendationOutOfStockPage = false,
                 RecommendationSearchPage = false,
@@ -161,6 +171,7 @@ namespace Nop.Plugin.Widgets.Retargeting
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureError", "Preconfigure error");
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ResetSettings", "Reset settings");
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.SettingsReset", "Settings have been reset");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin", "Cannot load the plugin");
 
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey", "Tracking API KEY");
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey.Hint", "To use Retargeting you need the Tracking API KEY from your Retargeting account.");
@@ -233,6 +244,7 @@ namespace Nop.Plugin.Widgets.Retargeting
             _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureError");
             _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ResetSettings");
             _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.SettingsReset");
+            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin");
 
             _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey");
             _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey.Hint");
@@ -335,15 +347,11 @@ namespace Nop.Plugin.Widgets.Retargeting
                         {"id", productToProcess.Id.ToString()},
                         {
                             "product_availability",
-                            product.AvailableEndDateTimeUtc != null
-                                ? product.AvailableEndDateTimeUtc.Value.ToString("yy-MM-dd hh:mm:ss")
-                                : null
+                            product.AvailableEndDateTimeUtc?.ToString("yy-MM-dd hh:mm:ss")
                         }
                     };
 
-                    decimal price;
-                    decimal priceWithDiscount;
-                    GetProductPrice(product, out price, out priceWithDiscount);
+                    GetProductPrice(product, out var price, out var priceWithDiscount);
 
                     productInfo.Add("price", price.ToString(new CultureInfo("en-US", false).NumberFormat));
                     productInfo.Add("promo", priceWithDiscount.ToString(new CultureInfo("en-US", false).NumberFormat));
@@ -408,9 +416,8 @@ namespace Nop.Plugin.Widgets.Retargeting
                 {
                     if (!product.CallForPrice)
                     {
-                        decimal taxRate;
-                        decimal oldPriceBase = _taxService.GetProductPrice(product, product.OldPrice, out taxRate);
-                        decimal finalPriceWithDiscountBase = _taxService.GetProductPrice(product, _priceCalculationService.GetFinalPrice(product, _workContext.CurrentCustomer, includeDiscounts: true), out taxRate);
+                        var oldPriceBase = _taxService.GetProductPrice(product, product.OldPrice, out _);
+                        var finalPriceWithDiscountBase = _taxService.GetProductPrice(product, _priceCalculationService.GetFinalPrice(product, _workContext.CurrentCustomer, includeDiscounts: true), out _);
 
                         price = _currencyService.ConvertFromPrimaryStoreCurrency(oldPriceBase, _workContext.WorkingCurrency);
                         priceWithDiscount = _currencyService.ConvertFromPrimaryStoreCurrency(finalPriceWithDiscountBase, _workContext.WorkingCurrency);
@@ -632,5 +639,12 @@ namespace Nop.Plugin.Widgets.Retargeting
 
             return productIsInStock;
         }
+
+        #endregion
+
+        /// <summary>
+        /// Gets a value indicating whether to hide this plugin on the widget list page in the admin area
+        /// </summary>
+        public bool HideInWidgetList => false;
     }
 }

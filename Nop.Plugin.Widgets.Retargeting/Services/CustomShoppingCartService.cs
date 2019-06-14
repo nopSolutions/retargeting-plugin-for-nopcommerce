@@ -31,8 +31,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
     public class CustomShoppingCartService : ShoppingCartService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILocalizationService _localizationService;
         private readonly IOrderService _orderService;
-        private readonly IPluginFinder _pluginFinder;
+        private readonly IPluginService _pluginService;
         private readonly IProductService _productService;
         private readonly IStoreContext _storeContext;
         private readonly IWorkContext _workContext;
@@ -40,7 +41,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
         public CustomShoppingCartService(
             IHttpContextAccessor httpContextAccessor,
             IOrderService orderService,
-            IPluginFinder pluginFinder,
+            IPluginService pluginService,
             CatalogSettings catalogSettings,
             IAclService aclService,
             IActionContextAccessor actionContextAccessor,
@@ -73,7 +74,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
               storeContext, storeMappingService, urlHelperFactory, urlRecordService, workContext, orderSettings, shoppingCartSettings)
         {
             _httpContextAccessor = httpContextAccessor;
-            _pluginFinder = pluginFinder;
+            _localizationService = localizationService;
+            _pluginService = pluginService;
             _productService = productService;
             _orderService = orderService;
             _workContext = workContext;
@@ -95,19 +97,16 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                 {
                     if (warnings.Count == 0)
                     {
-                        var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
+                        var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
                         if (pluginDescriptor == null)
-                            throw new Exception("Cannot load the plugin");
+                            throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
-                        var plugin = pluginDescriptor.Instance() as RetargetingPlugin;
-                        if (plugin == null)
-                            throw new Exception("Cannot load the plugin");
+                        if (!(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
+                            throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
                         object variation = false;
-                        string variationCode;
-                        Dictionary<string, object> variationDetails;
 
-                        var stock = plugin.IsProductCombinationInStock(product, attributesXml, out variationCode, out variationDetails);
+                        var stock = plugin.IsProductCombinationInStock(product, attributesXml, out var variationCode, out var variationDetails);
                         if (!string.IsNullOrEmpty(variationCode))
                             variation = new
                             {
@@ -141,26 +140,19 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
 
             if (shoppingMigrationInProcess.HasValue && !shoppingMigrationInProcess.Value && shoppingCartItem.ShoppingCartType == ShoppingCartType.ShoppingCart)
             {
-                var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
-                if (pluginDescriptor == null)
-                    throw new Exception("Cannot load the plugin");
-
-                var plugin = pluginDescriptor.Instance() as RetargetingPlugin;
-                if (plugin == null)
-                    throw new Exception("Cannot load the plugin");
+                var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
+                if (pluginDescriptor == null || !(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
+                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
                 var shoppingCartItemsToDelete = _httpContextAccessor.HttpContext?.Session.Get<Dictionary<int, Dictionary<string, string>>>("ra_shoppingCartItemsToDelete");
                 if (shoppingCartItemsToDelete == null)
                     shoppingCartItemsToDelete = new Dictionary<int, Dictionary<string, string>>();
 
                 object variation = false;
-                string variationCode;
-                Dictionary<string, object> variationDetails;
-
                 var product = _productService.GetProductById(shoppingCartItem.ProductId);
 
                 var stock = plugin.IsProductCombinationInStock(product, shoppingCartItem.AttributesXml,
-                    out variationCode, out variationDetails);
+                    out var variationCode, out var variationDetails);
                 if (!string.IsNullOrEmpty(variationCode))
                     variation = new
                     {
