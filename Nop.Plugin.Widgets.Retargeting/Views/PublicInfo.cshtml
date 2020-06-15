@@ -325,42 +325,50 @@
         @if (Model.RenderSendOrderFunc)
         {
             <text>
-        var saveOrderProducts = [];
+            var saveOrderProducts = [];
 
-        var saveOrderInfo = {
-            "order_no": "@Model.OrderModel.Id",
-            "lastname": "@Model.OrderModel.LastName",
-            "firstname": "@Model.OrderModel.FirstName",
-            "email": "@Model.OrderModel.Email",
-            "phone": "@Model.OrderModel.Phone",
-            "state": "@Model.OrderModel.State",
-            "city": "@Model.OrderModel.City",
-            "address": "@Model.OrderModel.Address",
-            "birthday": "@Model.OrderModel.Birthday",
-            "discount_code": JSON.parse("[" + "@Model.OrderModel.DiscountCode" + "]"),
-            "discount": "@Model.OrderModel.Discount",
-            "shipping": "@Model.OrderModel.Shipping",
-            "rebates": "@Model.OrderModel.Rebates",
-            "fees": "@Model.OrderModel.Fees",
-            "total": "@Model.OrderModel.Total"
-        };
-        </text>
-
-            foreach (var orderItem in Model.OrderModel.OrderItems)
+            var orderInfo = { "discount_code": [] };
+            @foreach(string code in Model.OrderModel.DiscountCode)
             {
                 <text>
-                    var productObj@(orderItem.Id) = {};
-                    productObj@(orderItem.Id)["id"] = "@orderItem.Id";
-                    productObj@(orderItem.Id)["quantity"] = "@orderItem.Quantity";
-                    productObj@(orderItem.Id)["price"] = "@orderItem.Price";
-                    productObj@(orderItem.Id)["variation_code"] = "@orderItem.VariationCode";
-                    saveOrderProducts.push(productObj@(orderItem.Id));
+                orderInfo.discount_code.push("@code");
                 </text>
             }
 
-            <text>
-        saveOrder(saveOrderInfo, saveOrderProducts);
-        </text>
+            var saveOrderInfo = {
+                "order_no": "@Model.OrderModel.Id",
+                "lastname": "@Model.OrderModel.LastName",
+                "firstname": "@Model.OrderModel.FirstName",
+                "email": "@Model.OrderModel.Email",
+                "phone": "@Model.OrderModel.Phone",
+                "state": "@Model.OrderModel.State",
+                "city": "@Model.OrderModel.City",
+                "address": "@Model.OrderModel.Address",
+                "birthday": "@Model.OrderModel.Birthday",
+                "discount_code": orderInfo.discount_code,
+                "discount": "@Model.OrderModel.Discount",
+                "shipping": "@Model.OrderModel.Shipping",
+                "rebates": "@Model.OrderModel.Rebates",
+                "fees": "@Model.OrderModel.Fees",
+                "total": "@Model.OrderModel.Total"
+            };
+            </text>
+
+                foreach (var orderItem in Model.OrderModel.OrderItems)
+                {
+                    <text>
+                        var productObj@(orderItem.Id) = {};
+                        productObj@(orderItem.Id)["id"] = "@orderItem.Id";
+                        productObj@(orderItem.Id)["quantity"] = "@orderItem.Quantity";
+                        productObj@(orderItem.Id)["price"] = "@orderItem.Price";
+                        productObj@(orderItem.Id)["variation_code"] = "@orderItem.VariationCode";
+                        saveOrderProducts.push(productObj@(orderItem.Id));
+                    </text>
+                }
+
+                <text>
+            saveOrder(saveOrderInfo, saveOrderProducts);
+            </text>
         }
 
         //help page

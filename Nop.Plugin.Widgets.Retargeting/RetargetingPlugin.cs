@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Net.Http;
 using System.Net;
+using System.Net.Http;
+using System.Text;
 using Nop.Core;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Media;
@@ -12,15 +12,16 @@ using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Tax;
 using Nop.Services.Catalog;
 using Nop.Services.Cms;
+using Nop.Services.Common;
 using Nop.Services.Configuration;
 using Nop.Services.Directory;
 using Nop.Services.Discounts;
 using Nop.Services.Localization;
+using Nop.Services.Logging;
 using Nop.Services.Orders;
+using Nop.Services.Plugins;
 using Nop.Services.Security;
 using Nop.Services.Tax;
-using Nop.Services.Logging;
-using Nop.Services.Plugins;
 using Nop.Web.Framework.Infrastructure;
 
 namespace Nop.Plugin.Widgets.Retargeting
@@ -29,76 +30,76 @@ namespace Nop.Plugin.Widgets.Retargeting
     {
         #region Fields
 
-        private readonly ITaxService _taxService;
-        private readonly IOrderService _orderService;
-        private readonly ISettingService _settingService;
-        private readonly IProductService _productService;
-        private readonly IDiscountService _discountService;
+        private readonly IAddressService _addressService;
         private readonly ICurrencyService _currencyService;
-        private readonly IPermissionService _permissionService;
-        private readonly IShoppingCartService _shoppingCartService;
-        private readonly IProductAttributeService _productAttributeService;
-        private readonly IPriceCalculationService _priceCalculationService;
-
+        private readonly IDiscountService _discountService;
         private readonly ILocalizationService _localizationService;
         private readonly ILogger _logger;
+        private readonly IOrderService _orderService;
+        private readonly IPermissionService _permissionService;
+        private readonly IPriceCalculationService _priceCalculationService;
+        private readonly IProductAttributeParser _productAttributeParser;
+        private readonly IProductAttributeService _productAttributeService;
+        private readonly IProductService _productService;
+        private readonly ISettingService _settingService;
+        private readonly IShoppingCartService _shoppingCartService;
+        private readonly IStateProvinceService _stateProvinceService;
+        private readonly IStoreContext _storeContext;
+        private readonly ITaxService _taxService;
         private readonly IWebHelper _webHelper;
         private readonly IWorkContext _workContext;
-        private readonly IStoreContext _storeContext;
-        private readonly IProductAttributeParser _productAttributeParser;
-
-        private readonly ShoppingCartSettings _shoppingCartSettings;
-        private readonly OrderSettings _orderSettings;
         private readonly MediaSettings _mediaSettings;
+        private readonly OrderSettings _orderSettings;
+        private readonly ShoppingCartSettings _shoppingCartSettings;
 
         #endregion
 
         #region Ctor
 
         public RetargetingPlugin(
-            ITaxService taxService,
-            IOrderService orderService,
-            ISettingService settingService,
-            IProductService productService,
+            IAddressService addressService,
             ICurrencyService currencyService,
             IDiscountService discountService,
-            IPermissionService permissionService,
-            IShoppingCartService shoppingCartService,
-            IProductAttributeService productAttributeService,
-            IPriceCalculationService priceCalculationService,
-
             ILocalizationService localizationService,
             ILogger logger,
+            IOrderService orderService,
+            IPermissionService permissionService,
+            IPriceCalculationService priceCalculationService,
+            IProductAttributeParser productAttributeParser,
+            IProductAttributeService productAttributeService,
+            IProductService productService,
+            ISettingService settingService,
+            IShoppingCartService shoppingCartService,
+            IStateProvinceService stateProvinceService,
+            IStoreContext storeContext,
+            ITaxService taxService,
             IWebHelper webHelper,
             IWorkContext workContext,
-            IStoreContext storeContext,
-            IProductAttributeParser productAttributeParser,
-
-            ShoppingCartSettings shoppingCartSettings,
+            MediaSettings mediaSettings,
             OrderSettings orderSettings,
-            MediaSettings mediaSettings)
+            ShoppingCartSettings shoppingCartSettings)
         {
-            _taxService = taxService;
-            _orderService = orderService;
-            _settingService = settingService;
-            _productService = productService;
+            _addressService = addressService;
             _currencyService = currencyService;
             _discountService = discountService;
-            _permissionService = permissionService;
-            _shoppingCartService = shoppingCartService;
-            _productAttributeService = productAttributeService;
-            _priceCalculationService = priceCalculationService;
-
             _localizationService = localizationService;
             _logger = logger;
+            _mediaSettings = mediaSettings;
+            _orderService = orderService;
+            _orderSettings = orderSettings;
+            _permissionService = permissionService;
+            _priceCalculationService = priceCalculationService;
+            _productAttributeParser = productAttributeParser;
+            _productAttributeService = productAttributeService;
+            _productService = productService;
+            _settingService = settingService;
+            _shoppingCartService = shoppingCartService;
+            _shoppingCartSettings = shoppingCartSettings;
+            _stateProvinceService = stateProvinceService;
+            _storeContext = storeContext;
+            _taxService = taxService;
             _webHelper = webHelper;
             _workContext = workContext;
-            _storeContext = storeContext;
-            _productAttributeParser = productAttributeParser;
-
-            _shoppingCartSettings = shoppingCartSettings;
-            _orderSettings = orderSettings;
-            _mediaSettings = mediaSettings;
         }
 
         #endregion
@@ -164,66 +165,68 @@ namespace Nop.Plugin.Widgets.Retargeting
             _settingService.SaveSetting(settings);
 
             //locales
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.Configuration", "Configuration");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureSystem", "Preconfigure system");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureButton", "Preconfigure");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureCompleted", "Preconfigure completed");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureError", "Preconfigure error");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ResetSettings", "Reset settings");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.SettingsReset", "Settings have been reset");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin", "Cannot load the plugin");
-
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey", "Tracking API KEY");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey.Hint", "To use Retargeting you need the Tracking API KEY from your Retargeting account.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RestApiKey", "REST API KEY");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RestApiKey.Hint", "To use the REST API you need the REST API KEY from your Retargeting account.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.UseHttpPostInsteadOfAjaxInAddToCart", "Use HTTP POST method (add to cart)");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.UseHttpPostInsteadOfAjaxInAddToCart.Hint", "Check to use the HTTP POST method for adding to cart(wishlist) instead of ajax.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductBoxSelector", "Product box selector");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductBoxSelector.Hint", "Product box selector.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.AddToCartCatalogButtonSelector", "Add to cart button selector (catalog)");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.AddToCartCatalogButtonSelector.Hint", "Add to cart button selector (catalog).");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.AddToCartButtonIdDetailsPrefix", "Add to cart button id prefix (product details)");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.AddToCartButtonIdDetailsPrefix.Hint", "Add to cart button id prefix (product details).");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.AddToWishlistCatalogButtonSelector", "Add to wishlist button selector (catalog)");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.AddToWishlistCatalogButtonSelector.Hint", "Add to wishlist button selector (catalog).");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.AddToWishlistButtonIdDetailsPrefix", "Add to wishlist button id prefix (product details)");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.AddToWishlistButtonIdDetailsPrefix.Hint", "Add to wishlist button id  (product details).");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductPriceLabelDetailsSelector", "Price label selector (product details)");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductPriceLabelDetailsSelector.Hint", "Price label selector (product details).");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductMainPictureIdDetailsPrefix", "Product main picture id prefix");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductMainPictureIdDetailsPrefix.Hint", "Product main picture id prefix (required only if main picture zoom is enabled).");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.HelpTopicSystemNames", "Help topic system names");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.HelpTopicSystemNames.Hint", "Comma separated help topic system names.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector", "Product review added result selector");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector.Hint", "Product review added result selector.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.DiscountTypeNote", "Note: Retargeting can generate discounts through it's API. One of the generated discount types is Custom. We allow Retargeting to generate only Free Shipping discount as a Custom discount type.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.CustomizationNote", "Note: this plugin may work incorrectly in case you made some customization of your website.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.SubscribeRetargeting", "Please enter your email to receive an information about special offers from Retargeting.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe", "Subscribe");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.MerchantEmail", "Email");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.MerchantEmail.Hint", "Enter your email to subscribe to Retargeting news.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe.Error", "An error has occurred, details in the log");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe.Success", "You have subscribed to Retargeting news");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.Unsubscribe.Success", "You have unsubscribed from Retargeting news");
-
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationHomePage", "Recommendation for Home page");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationHomePage.Hint", "To use Retargeting Recommendation Engine for Home page.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCategoryPage", "Recommendation for Category page");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCategoryPage.Hint", "To use Retargeting Recommendation Engine for Category page.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationProductPage", "Recommendation for Product page");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationProductPage.Hint", "To use Retargeting Recommendation Engine for Product page.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCheckoutPage", "Recommendation for Checkout page");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCheckoutPage.Hint", "To use Retargeting Recommendation Engine for Checkout page.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationThankYouPage", "Recommendation for Thank You Page");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationThankYouPage.Hint", "To use Retargeting Recommendation Engine for Thank You page.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationOutOfStockPage", "Recommendation for Out Of Stock page");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationOutOfStockPage.Hint", "To use Retargeting Recommendation Engine for Out Of Stock page.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationSearchPage", "Recommendation for Search page");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationSearchPage.Hint", "To use Retargeting Recommendation Engine for Search page.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationPageNotFound", "Recommendation for Page Not Found");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationPageNotFound.Hint", "To use Retargeting Recommendation Engine for Page Not Found.");
-
+            _localizationService.AddPluginLocaleResource(new Dictionary<string, string>
+            { 
+                ["Plugins.Widgets.Retargeting.Configuration"] = "Configuration",
+                ["Plugins.Widgets.Retargeting.PreconfigureSystem"] = "Preconfigure system",
+                ["Plugins.Widgets.Retargeting.PreconfigureButton"] = "Preconfigure",
+                ["Plugins.Widgets.Retargeting.PreconfigureCompleted"] = "Preconfigure completed",
+                ["Plugins.Widgets.Retargeting.PreconfigureError"] = "Preconfigure error",
+                ["Plugins.Widgets.Retargeting.ResetSettings"] = "Reset settings",
+                ["Plugins.Widgets.Retargeting.SettingsReset"] = "Settings have been reset",
+                ["Plugins.Widgets.Retargeting.ExceptionLoadPlugin"] = "Cannot load the plugin",
+                
+                ["Plugins.Widgets.Retargeting.TrackingApiKey"] = "Tracking API KEY",
+                ["Plugins.Widgets.Retargeting.TrackingApiKey.Hint"] = "To use Retargeting you need the Tracking API KEY from your Retargeting account.",
+                ["Plugins.Widgets.Retargeting.RestApiKey"] = "REST API KEY",
+                ["Plugins.Widgets.Retargeting.RestApiKey.Hint"] = "To use the REST API you need the REST API KEY from your Retargeting account.",
+                ["Plugins.Widgets.Retargeting.UseHttpPostInsteadOfAjaxInAddToCart"] = "Use HTTP POST method (add to cart)",
+                ["Plugins.Widgets.Retargeting.UseHttpPostInsteadOfAjaxInAddToCart.Hint"] = "Check to use the HTTP POST method for adding to cart(wishlist) instead of ajax.",
+                ["Plugins.Widgets.Retargeting.ProductBoxSelector"] = "Product box selector",
+                ["Plugins.Widgets.Retargeting.ProductBoxSelector.Hint"] = "Product box selector.",
+                ["Plugins.Widgets.Retargeting.AddToCartCatalogButtonSelector"] = "Add to cart button selector (catalog)",
+                ["Plugins.Widgets.Retargeting.AddToCartCatalogButtonSelector.Hint"] = "Add to cart button selector (catalog).",
+                ["Plugins.Widgets.Retargeting.AddToCartButtonIdDetailsPrefix"] = "Add to cart button id prefix (product details)",
+                ["Plugins.Widgets.Retargeting.AddToCartButtonIdDetailsPrefix.Hint"] = "Add to cart button id prefix (product details).",
+                ["Plugins.Widgets.Retargeting.AddToWishlistCatalogButtonSelector"] = "Add to wishlist button selector (catalog)",
+                ["Plugins.Widgets.Retargeting.AddToWishlistCatalogButtonSelector.Hint"] = "Add to wishlist button selector (catalog).",
+                ["Plugins.Widgets.Retargeting.AddToWishlistButtonIdDetailsPrefix"] = "Add to wishlist button id prefix (product details)",
+                ["Plugins.Widgets.Retargeting.AddToWishlistButtonIdDetailsPrefix.Hint"] = "Add to wishlist button id  (product details).",
+                ["Plugins.Widgets.Retargeting.ProductPriceLabelDetailsSelector"] = "Price label selector (product details)",
+                ["Plugins.Widgets.Retargeting.ProductPriceLabelDetailsSelector.Hint"] = "Price label selector (product details).",
+                ["Plugins.Widgets.Retargeting.ProductMainPictureIdDetailsPrefix"] = "Product main picture id prefix",
+                ["Plugins.Widgets.Retargeting.ProductMainPictureIdDetailsPrefix.Hint"] = "Product main picture id prefix (required only if main picture zoom is enabled).",
+                ["Plugins.Widgets.Retargeting.HelpTopicSystemNames"] = "Help topic system names",
+                ["Plugins.Widgets.Retargeting.HelpTopicSystemNames.Hint"] = "Comma separated help topic system names.",
+                ["Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector"] = "Product review added result selector",
+                ["Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector.Hint"] = "Product review added result selector.",
+                ["Plugins.Widgets.Retargeting.DiscountTypeNote"] = "Note: Retargeting can generate discounts through it's API. One of the generated discount types is Custom. We allow Retargeting to generate only Free Shipping discount as a Custom discount type.",
+                ["Plugins.Widgets.Retargeting.CustomizationNote"] = "Note: this plugin may work incorrectly in case you made some customization of your website.",
+                ["Plugins.Widgets.Retargeting.SubscribeRetargeting"] = "Please enter your email to receive an information about special offers from Retargeting.",
+                ["Plugins.Widgets.Retargeting.Subscribe"] = "Subscribe",
+                ["Plugins.Widgets.Retargeting.MerchantEmail"] = "Email",
+                ["Plugins.Widgets.Retargeting.MerchantEmail.Hint"] = "Enter your email to subscribe to Retargeting news.",
+                ["Plugins.Widgets.Retargeting.Subscribe.Error"] = "An error has occurred] = details in the log",
+                ["Plugins.Widgets.Retargeting.Subscribe.Success"] = "You have subscribed to Retargeting news",
+                ["Plugins.Widgets.Retargeting.Unsubscribe.Success"] = "You have unsubscribed from Retargeting news",
+               
+                ["Plugins.Widgets.Retargeting.RecommendationHomePage"] = "Recommendation for Home page",
+                ["Plugins.Widgets.Retargeting.RecommendationHomePage.Hint"] = "To use Retargeting Recommendation Engine for Home page.",
+                ["Plugins.Widgets.Retargeting.RecommendationCategoryPage"] = "Recommendation for Category page",
+                ["Plugins.Widgets.Retargeting.RecommendationCategoryPage.Hint"] = "To use Retargeting Recommendation Engine for Category page.",
+                ["Plugins.Widgets.Retargeting.RecommendationProductPage"] = "Recommendation for Product page",
+                ["Plugins.Widgets.Retargeting.RecommendationProductPage.Hint"] = "To use Retargeting Recommendation Engine for Product page.",
+                ["Plugins.Widgets.Retargeting.RecommendationCheckoutPage"] = "Recommendation for Checkout page",
+                ["Plugins.Widgets.Retargeting.RecommendationCheckoutPage.Hint"] = "To use Retargeting Recommendation Engine for Checkout page.",
+                ["Plugins.Widgets.Retargeting.RecommendationThankYouPage"] = "Recommendation for Thank You Page",
+                ["Plugins.Widgets.Retargeting.RecommendationThankYouPage.Hint"] = "To use Retargeting Recommendation Engine for Thank You page.",
+                ["Plugins.Widgets.Retargeting.RecommendationOutOfStockPage"] = "Recommendation for Out Of Stock page",
+                ["Plugins.Widgets.Retargeting.RecommendationOutOfStockPage.Hint"] = "To use Retargeting Recommendation Engine for Out Of Stock page.",
+                ["Plugins.Widgets.Retargeting.RecommendationSearchPage"] = "Recommendation for Search page",
+                ["Plugins.Widgets.Retargeting.RecommendationSearchPage.Hint"] = "To use Retargeting Recommendation Engine for Search page.",
+                ["Plugins.Widgets.Retargeting.RecommendationPageNotFound"] = "Recommendation for Page Not Found",
+                ["Plugins.Widgets.Retargeting.RecommendationPageNotFound.Hint"] = "To use Retargeting Recommendation Engine for Page Not Found."
+            });
 
             base.Install();
         }
@@ -237,65 +240,7 @@ namespace Nop.Plugin.Widgets.Retargeting
             _settingService.DeleteSetting<RetargetingSettings>();
 
             //locales
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.Configuration");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureSystem");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureButton");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureCompleted");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.PreconfigureError");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ResetSettings");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.SettingsReset");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin");
-
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.TrackingApiKey.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.UseHttpPostInsteadOfAjaxInAddToCart");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.UseHttpPostInsteadOfAjaxInAddToCart.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RestApiKey");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RestApiKey.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductBoxSelector");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductBoxSelector.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.AddToCartCatalogButtonSelector");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.AddToCartCatalogButtonSelector.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.AddToCartButtonIdDetailsPrefix");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.AddToCartButtonIdDetailsPrefix.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.AddToWishlistCatalogButtonSelector");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.AddToWishlistCatalogButtonSelector.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.AddToWishlistButtonIdDetailsPrefix");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.AddToWishlistButtonIdDetailsPrefix.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductPriceLabelDetailsSelector");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductPriceLabelDetailsSelector.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductMainPictureIdDetailsPrefix");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductMainPictureIdDetailsPrefix.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.HelpTopicSystemNames");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.HelpTopicSystemNames.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.ProductReviewAddedResultSelector.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.DiscountTypeNote");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.CustomizationNote");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.SubscribeRetargeting");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.MerchantEmail");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.MerchantEmail.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe.Error");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.Subscribe.Success");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.Unsubscribe.Success");
-
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationHomePage");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationHomePage.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCategoryPage");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCategoryPage.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationProductPage");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationProductPage.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCheckoutPage");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationCheckoutPage.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationThankYouPage");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationThankYouPage.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationOutOfStockPage");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationOutOfStockPage.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationSearchPage");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationSearchPage.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationPageNotFound");
-            _localizationService.DeletePluginLocaleResource("Plugins.Widgets.Retargeting.RecommendationPageNotFound.Hint");
+            _localizationService.DeletePluginLocaleResources("Plugins.Widgets.Retargeting.Configuration");
 
             base.Uninstall();
         }
@@ -467,18 +412,17 @@ namespace Nop.Plugin.Widgets.Retargeting
                 {
                     var sb = new StringBuilder();
 
+                    var billingAddress = _addressService.GetAddressById(order.BillingAddressId);
+
                     sb.AppendFormat("api_key={0}&", retargetingSettings.RestApiKey);
                     sb.AppendFormat("0[order_no]={0}&", order.Id);
-                    sb.AppendFormat("0[lastname]={0}&", WebUtility.UrlEncode(order.BillingAddress.LastName));
-                    sb.AppendFormat("0[firstname]={0}&", WebUtility.UrlEncode(order.BillingAddress.FirstName));
-                    sb.AppendFormat("0[email]={0}&", WebUtility.UrlEncode(order.BillingAddress.Email));
-                    sb.AppendFormat("0[phone]={0}&", WebUtility.UrlEncode(order.BillingAddress.PhoneNumber));
-                    sb.AppendFormat("0[state]={0}&", order.BillingAddress.StateProvince != null
-                                                    ? WebUtility.UrlEncode(order.BillingAddress.StateProvince.Name)
-                                                    : "");
-                    sb.AppendFormat("0[city]={0}&", WebUtility.UrlEncode(order.BillingAddress.City));
-                    sb.AppendFormat("0[adress]={0}&", WebUtility.UrlEncode(order.BillingAddress.Address1 + " " +
-                                                               order.BillingAddress.Address2));
+                    sb.AppendFormat("0[lastname]={0}&", WebUtility.UrlEncode(billingAddress?.LastName));
+                    sb.AppendFormat("0[firstname]={0}&", WebUtility.UrlEncode(billingAddress?.FirstName));
+                    sb.AppendFormat("0[email]={0}&", WebUtility.UrlEncode(billingAddress?.Email));
+                    sb.AppendFormat("0[phone]={0}&", WebUtility.UrlEncode(billingAddress?.PhoneNumber));
+                    sb.AppendFormat("0[state]={0}&", WebUtility.UrlEncode(_stateProvinceService.GetStateProvinceByAddress(billingAddress)?.Name));
+                    sb.AppendFormat("0[city]={0}&", WebUtility.UrlEncode(billingAddress?.City));
+                    sb.AppendFormat("0[adress]={0}&", WebUtility.UrlEncode($"{billingAddress?.Address1} {billingAddress?.Address2}"));
                     sb.AppendFormat("0[discount]={0}&", order.OrderDiscount.ToString("0.00", CultureInfo.InvariantCulture));
                     sb.AppendFormat("0[shipping]={0}&", order.CustomerTaxDisplayType == TaxDisplayType.IncludingTax
                                                         ? order.OrderShippingInclTax.ToString("0.00", CultureInfo.InvariantCulture)
@@ -491,11 +435,11 @@ namespace Nop.Plugin.Widgets.Retargeting
                     var discountCode = "";
                     var discountsWithCouponCodes =
                             _discountService.GetAllDiscountUsageHistory(orderId: order.Id)
-                                .Where(x => !string.IsNullOrEmpty(x.Discount.CouponCode))
+                                .Where(x => !string.IsNullOrEmpty(_discountService.GetDiscountById(x.DiscountId)?.CouponCode))
                                 .ToList();
                     for (var i = 0; i < discountsWithCouponCodes.Count; i++)
                     {
-                        discountCode += discountsWithCouponCodes[i].Discount.CouponCode;
+                        discountCode += _discountService.GetDiscountById(discountsWithCouponCodes[i].DiscountId).CouponCode;
 
                         if (i < discountsWithCouponCodes.Count - 1)
                             discountCode += ",";
@@ -503,15 +447,16 @@ namespace Nop.Plugin.Widgets.Retargeting
                     sb.AppendFormat("0[discount_code]={0}&", discountCode);
 
                     //order items
-                    for (var i = 0; i < order.OrderItems.Count; i++)
+                    var orderItems = _orderService.GetOrderItems(order.Id);
+                    for (var i = 0; i < orderItems.Count; i++)
                     {
-                        sb.AppendFormat("1[{0}][id]={1}&", i, order.OrderItems.ElementAt(i).Id);
-                        sb.AppendFormat("1[{0}][quantity]={1}&", i, order.OrderItems.ElementAt(i).Quantity);
+                        sb.AppendFormat("1[{0}][id]={1}&", i, orderItems.ElementAt(i).Id);
+                        sb.AppendFormat("1[{0}][quantity]={1}&", i, orderItems.ElementAt(i).Quantity);
                         sb.AppendFormat("1[{0}][price]={1}&", i, order.CustomerTaxDisplayType == TaxDisplayType.IncludingTax
-                                                                                    ? order.OrderItems.ElementAt(i).UnitPriceInclTax
-                                                                                    : order.OrderItems.ElementAt(i).UnitPriceExclTax);
+                                                                                    ? orderItems.ElementAt(i).UnitPriceInclTax
+                                                                                    : orderItems.ElementAt(i).UnitPriceExclTax);
                         var variationCode = "";
-                        var values = _productAttributeParser.ParseProductAttributeValues(order.OrderItems.ElementAt(i).AttributesXml);
+                        var values = _productAttributeParser.ParseProductAttributeValues(orderItems.ElementAt(i).AttributesXml);
                         for (var j = 0; j < values.Count; j++)
                         {
                             variationCode += values[j].Id;
@@ -526,8 +471,9 @@ namespace Nop.Plugin.Widgets.Retargeting
                     var response = restApiHelper.GetJson(_logger, "https://retargeting.biz/api/1.0/order/save.json", HttpMethod.Post, sb.ToString());
 
                     //order note
-                    order.OrderNotes.Add(new OrderNote
+                    _orderService.InsertOrderNote(new OrderNote
                     {
+                        OrderId = order.Id,
                         Note = string.Format("Retargeting REST API. Saving the order data result: {0}", response),
                         DisplayToCustomer = false,
                         CreatedOnUtc = DateTime.UtcNow
@@ -621,16 +567,16 @@ namespace Nop.Plugin.Widgets.Retargeting
                     if (i < values.Count - 1)
                         variationCode += "-";
 
-                    var attributeMapping =
-                            _productAttributeService.GetProductAttributeMappingById(values[i].ProductAttributeMappingId);
-                    if (attributeMapping != null && attributeMapping.ProductAttribute != null)
+                    var attributeMapping = _productAttributeService.GetProductAttributeMappingById(values[i].ProductAttributeMappingId);
+                    var productAttribute = _productAttributeService.GetProductAttributeById(attributeMapping.ProductAttributeId);
+                    if (attributeMapping != null && productAttribute != null)
                     {
                         variationDetails.Add(
                             values[i].Id.ToString(),
                             new
                             {
-                                category_name = _localizationService.GetLocalized(attributeMapping.ProductAttribute, x => x.Name),
-                                category = attributeMapping.ProductAttribute.Id,
+                                category_name = _localizationService.GetLocalized(productAttribute, x => x.Name),
+                                category = productAttribute.Id,
                                 value = values[i].Name
                             });
                     }

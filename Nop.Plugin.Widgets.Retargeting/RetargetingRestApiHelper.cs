@@ -23,38 +23,32 @@ namespace Nop.Plugin.Widgets.Retargeting
 
                 if ((method == HttpMethod.Post || method == HttpMethod.Put) && !string.IsNullOrEmpty(data))
                 {
-                    using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
-                    {
-                        streamWriter.Write(data);
-                        streamWriter.Close();
-                    }
+                    using var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream());
+                    streamWriter.Write(data);
+                    streamWriter.Close();
                 }
 
                 var httpWebResponse = httpWebRequest.GetResponse();
 
-                using (var responseStream = httpWebResponse.GetResponseStream())
+                using var responseStream = httpWebResponse.GetResponseStream();
+                if (responseStream != null)
                 {
-                    if (responseStream != null)
-                    {
-                        var streamReader = new StreamReader(responseStream);
-                        result = streamReader.ReadToEnd();
-                        streamReader.Close();
-                    }
+                    var streamReader = new StreamReader(responseStream);
+                    result = streamReader.ReadToEnd();
+                    streamReader.Close();
                 }
             }
             catch (WebException ex)
             {
                 try
                 {
-                    using (var responseStream = ex.Response.GetResponseStream())
+                    using var responseStream = ex.Response.GetResponseStream();
+                    if (responseStream != null)
                     {
-                        if (responseStream != null)
-                        {
-                            var streamReader = new StreamReader(responseStream);
-                            result = streamReader.ReadToEnd();
-                            streamReader.Close();
-                            logger.Error(string.Format("Retargeting REST API. Saving the order data error: {0}", result));
-                        }
+                        var streamReader = new StreamReader(responseStream);
+                        result = streamReader.ReadToEnd();
+                        streamReader.Close();
+                        logger.Error(string.Format("Retargeting REST API. Saving the order data error: {0}", result));
                     }
                 }
                 catch (Exception)

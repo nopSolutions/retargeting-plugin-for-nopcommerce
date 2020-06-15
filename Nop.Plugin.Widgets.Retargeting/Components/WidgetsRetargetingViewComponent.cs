@@ -17,6 +17,7 @@ using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Configuration;
 using Nop.Services.Customers;
+using Nop.Services.Directory;
 using Nop.Services.Discounts;
 using Nop.Services.Orders;
 using Nop.Services.Topics;
@@ -29,6 +30,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
     public class WidgetsRetargetingViewComponent : NopViewComponent
     {
         private readonly IActionContextAccessor _actionContextAccessor;
+        private readonly IAddressService _addressService;
         private readonly ICategoryService _categoryService;
         private readonly ICustomerService _customerService;
         private readonly IDiscountService _discountService;
@@ -39,6 +41,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
         private readonly IProductAttributeParser _productAttributeParser;
         private readonly IProductService _productService;
         private readonly ISettingService _settingService;
+        private readonly IShoppingCartService _shoppingCartService;
+        private readonly IStateProvinceService _stateProvinceService;
         private readonly IStoreContext _storeContext;
         private readonly ITopicService _topicService;
         private readonly IWorkContext _workContext;
@@ -46,6 +50,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
 
         public WidgetsRetargetingViewComponent(
             IActionContextAccessor actionContextAccessor,
+            IAddressService addressService,
             ICategoryService categoryService,
             ICustomerService customerService,
             IDiscountService discountService,
@@ -53,30 +58,34 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             IHttpContextAccessor httpContextAccessor,
             IManufacturerService manufacturerService,
             IOrderService orderService,
-            IProductService productService,
             IProductAttributeParser productAttributeParser,
+            IProductService productService,
             ISettingService settingService,
+            IShoppingCartService shoppingCartService,
+            IStateProvinceService stateProvinceService,
             IStoreContext storeContext,
             ITopicService topicService,
             IWorkContext workContext,
-            MediaSettings mediaSettings
-            )
+            MediaSettings mediaSettings)
         {
             _actionContextAccessor = actionContextAccessor;
+            _addressService = addressService;
             _categoryService = categoryService;
             _customerService = customerService;
             _discountService = discountService;
             _genericAttributeService = genericAttributeService;
             _httpContextAccessor = httpContextAccessor;
             _manufacturerService = manufacturerService;
+            _mediaSettings = mediaSettings;
             _orderService = orderService;
-            _productService = productService;
             _productAttributeParser = productAttributeParser;
+            _productService = productService;
             _settingService = settingService;
+            _shoppingCartService = shoppingCartService;
+            _stateProvinceService = stateProvinceService;
             _storeContext = storeContext;
             _topicService = topicService;
             _workContext = workContext;
-            _mediaSettings = mediaSettings;
         }
 
         public IViewComponentResult Invoke(string widgetZone, object additionalData)
@@ -132,19 +141,12 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                     };
 
                     var gender = _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.GenderAttribute);
-                    switch (gender)
+                    model.CustomerModel.Sex = gender switch
                     {
-                        case "M":
-                            model.CustomerModel.Sex = "1";
-                            break;
-                        case "F":
-                            model.CustomerModel.Sex = "0";
-                            break;
-                        default:
-                            model.CustomerModel.Sex = "";
-                            break;
-                    }
-
+                        "M" => "1",
+                        "F" => "0",
+                        _ => "",
+                    };
                     var dateOfBirth = _genericAttributeService.GetAttribute<DateTime?>(customer, NopCustomerDefaults.DateOfBirthAttribute);
                     if (dateOfBirth.HasValue)
                         model.CustomerModel.Birthday = dateOfBirth.Value.ToString("dd-MM-yyyy");
@@ -253,22 +255,19 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                 if (order != null && !order.Deleted && _workContext.CurrentCustomer.Id == order.CustomerId)
                 {
                     model.RenderSendOrderFunc = true;
+
+                    var billingAddress = _addressService.GetAddressById(order.BillingAddressId);
                     var orderModel = new OrderModel
                     {
                         Id = order.Id,
-                        City = JavaScriptEncoder.Default.Encode(order.BillingAddress.City ?? ""),
+                        City = JavaScriptEncoder.Default.Encode(billingAddress?.City ?? ""),
                         Discount = order.OrderDiscount.ToString("0.00", CultureInfo.InvariantCulture),
-                        Email = order.BillingAddress.Email,
-                        FirstName = JavaScriptEncoder.Default.Encode(order.BillingAddress.FirstName ?? ""),
-                        LastName = JavaScriptEncoder.Default.Encode(order.BillingAddress.LastName ?? ""),
-                        Phone = JavaScriptEncoder.Default.Encode(order.BillingAddress.PhoneNumber ?? ""),
-                        State =
-                            order.BillingAddress.StateProvince != null
-                                ? JavaScriptEncoder.Default.Encode(order.BillingAddress.StateProvince.Name ?? "")
-                                : "",
-                        Address =
-                            JavaScriptEncoder.Default.Encode(order.BillingAddress.Address1 + " " +
-                                                               order.BillingAddress.Address2),
+                        Email = billingAddress?.Email,
+                        FirstName = JavaScriptEncoder.Default.Encode(billingAddress?.FirstName ?? ""),
+                        LastName = JavaScriptEncoder.Default.Encode(billingAddress?.LastName ?? ""),
+                        Phone = JavaScriptEncoder.Default.Encode(billingAddress?.PhoneNumber ?? ""),
+                        State = JavaScriptEncoder.Default.Encode(_stateProvinceService.GetStateProvinceByAddress(billingAddress)?.Name ?? ""),
+                        Address = JavaScriptEncoder.Default.Encode($"{billingAddress?.Address1} {billingAddress?.Address2}"),
                         Shipping =
                             order.CustomerTaxDisplayType == TaxDisplayType.IncludingTax
                                 ? order.OrderShippingInclTax.ToString("0.00", CultureInfo.InvariantCulture)
@@ -280,23 +279,18 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
 
                     //discount codes
                     var discountsWithCouponCodes =
-                        _discountService.GetAllDiscountUsageHistory(orderId: order.Id)
-                            .Where(x => !string.IsNullOrEmpty(x.Discount.CouponCode))
+                        _discountService.GetAllDiscountUsageHistory(orderId: order.Id)                            
+                            .Where(x => !string.IsNullOrEmpty(_discountService.GetDiscountById(x.DiscountId)?.CouponCode))
+                            .Select(x => _discountService.GetDiscountById(x.DiscountId)?.CouponCode)
                             .ToList();
-                    for (var i = 0; i < discountsWithCouponCodes.Count; i++)
-                    {
-                        orderModel.DiscountCode += discountsWithCouponCodes[i].Discount.CouponCode;
+                    orderModel.DiscountCode = discountsWithCouponCodes;
 
-                        if (i < discountsWithCouponCodes.Count - 1)
-                            orderModel.DiscountCode += ", ";
-                    }
-
-                    var dateOfBirth = _genericAttributeService.GetAttribute<DateTime?>(order.Customer, NopCustomerDefaults.DateOfBirthAttribute);
+                    var dateOfBirth = _genericAttributeService.GetAttribute<DateTime?>(_customerService.GetCustomerById(order.CustomerId), NopCustomerDefaults.DateOfBirthAttribute);
                     if (dateOfBirth.HasValue)
                         orderModel.Birthday = dateOfBirth.Value.ToString("dd-mm-yyyy");
 
                     //order items
-                    foreach (var orderItem in order.OrderItems)
+                    foreach (var orderItem in _orderService.GetOrderItems(order.Id))
                     {
                         var itemPrice = order.CustomerTaxDisplayType == TaxDisplayType.IncludingTax
                                             ? orderItem.UnitPriceInclTax
@@ -365,12 +359,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             {
                 model.RenderCheckoutIdsFunc = true;
 
-                var cart = _workContext.CurrentCustomer.ShoppingCartItems
-                    .Where(sci => sci.ShoppingCartType == ShoppingCartType.ShoppingCart)
-                    .Where(item => item.StoreId == _storeContext.CurrentStore.Id)
-                    .ToList();
-
-                foreach (var cartItem in cart)
+                foreach (var cartItem in _shoppingCartService.GetShoppingCart(_workContext.CurrentCustomer, ShoppingCartType.ShoppingCart, _storeContext.CurrentStore.Id))
                 {
                     model.CartItemIds += cartItem.ProductId;
                     model.CartItemIds += ",";

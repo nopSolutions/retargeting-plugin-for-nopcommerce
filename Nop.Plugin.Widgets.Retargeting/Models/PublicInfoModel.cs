@@ -169,7 +169,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Models
 
         public string Birthday { get; set; }
 
-        public string DiscountCode { get; set; }
+        public List<string> DiscountCode { get; set; }
 
         public string Discount { get; set; }
 

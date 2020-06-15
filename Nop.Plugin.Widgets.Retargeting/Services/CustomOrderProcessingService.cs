@@ -34,8 +34,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
 
         public CustomOrderProcessingService(
             IPluginService pluginService,
-
             CurrencySettings currencySettings,
+            IAddressService addressService,
             IAffiliateService affiliateService,
             ICheckoutAttributeFormatter checkoutAttributeFormatter,
             ICountryService countryService,
@@ -63,11 +63,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             IProductService productService,
             IRewardPointService rewardPointService,
             IShipmentService shipmentService,
-            IShippingPluginManager shippingPluginManager,
             IShippingService shippingService,
             IShoppingCartService shoppingCartService,
             IStateProvinceService stateProvinceService,
-            IStoreContext storeContext,
             ITaxService taxService,
             IVendorService vendorService,
             IWebHelper webHelper,
@@ -81,6 +79,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             TaxSettings taxSettings) :
             base(
                 currencySettings,
+                addressService,
                 affiliateService,
                 checkoutAttributeFormatter,
                 countryService,
@@ -108,11 +107,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                 productService,
                 rewardPointService,
                 shipmentService,
-                shippingPluginManager,
                 shippingService,
                 shoppingCartService,
                 stateProvinceService,
-                storeContext,
                 taxService,
                 vendorService,
                 webHelper,

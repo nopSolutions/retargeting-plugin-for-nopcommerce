@@ -8,15 +8,16 @@ using Microsoft.AspNetCore.Mvc;
 using Nop.Core;
 using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
-using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Discounts;
 using Nop.Core.Domain.Messages;
 using Nop.Core.Domain.Orders;
 using Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache;
 using Nop.Plugin.Widgets.Retargeting.Models;
+using Nop.Services.Caching;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Configuration;
+using Nop.Services.Customers;
 using Nop.Services.Discounts;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
@@ -29,15 +30,16 @@ using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;
 using Nop.Web.Framework.Mvc;
 using Nop.Web.Framework.Mvc.Filters;
-using Nop.Web.Framework.Security;
 
 namespace Nop.Plugin.Widgets.Retargeting.Controllers
 {
+    [AutoValidateAntiforgeryToken]
     public class WidgetsRetargetingController : BasePluginController
     {
         private readonly EmailAccountSettings _emailAccountSettings;
-        private readonly ICacheManager _cacheManager;
+        private readonly ICacheKeyService _cacheKeyService;
         private readonly ICategoryService _categoryService;
+        private readonly ICustomerService _customerService;
         private readonly IDiscountService _discountService;
         private readonly IEmailAccountService _emailAccountService;
         private readonly IEmailSender _emailSender;
@@ -53,14 +55,16 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         private readonly IProductService _productService;
         private readonly ISettingService _settingService;
         private readonly IShoppingCartService _shoppingCartService;
+        private readonly IStaticCacheManager _cacheManager;
         private readonly IStoreContext _storeContext;
         private readonly IUrlRecordService _urlRecordService;
         private readonly IWorkContext _workContext;
 
         public WidgetsRetargetingController(
             EmailAccountSettings emailAccountSettings,
-            ICacheManager cacheManager,
+            ICacheKeyService cacheKeyService,
             ICategoryService categoryService,
+            ICustomerService customerService,
             IDiscountService discountService,
             IEmailAccountService emailAccountService,
             IEmailSender emailSender,
@@ -76,16 +80,19 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             IProductService productService,
             ISettingService settingService,
             IShoppingCartService shoppingCartService,
+            IStaticCacheManager cacheManager,
             IStoreContext storeContext,
             IUrlRecordService urlRecordService,
             IWorkContext workContext
             )
         {
-            _emailAccountSettings = emailAccountSettings;
+            _cacheKeyService = cacheKeyService;
             _cacheManager = cacheManager;
             _categoryService = categoryService;
+            _customerService = customerService;
             _discountService = discountService;
             _emailAccountService = emailAccountService;
+            _emailAccountSettings = emailAccountSettings;
             _emailSender = emailSender;
             _genericAttributeService = genericAttributeService;
             _localizationService = localizationService;
@@ -143,8 +150,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
                 ActiveStoreScopeConfiguration = storeScope
             };
-
-            
 
             if (storeScope > 0)
             {
@@ -213,7 +218,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             retargetingSettings.RecommendationPageNotFound = model.RecommendationPageNotFound;
 
             retargetingSettings.MerchantEmail = model.MerchantEmail;
-
 
             /* We do not clear cache after each setting update.
              * This behavior can increase performance because cached settings will not be cleared 
@@ -324,7 +328,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             return Configure();
         }
 
-        [HttpsRequirement(SslRequirement.No)]
         public IActionResult ProductStockFeed()
         {
             var productFeed = new object();
@@ -348,7 +351,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             return Json(productFeed);
         }
 
-        [HttpsRequirement(SslRequirement.No)]
         public IActionResult GenerateDiscounts(string key, string value, int type, int count)
         {
             var discountCodes = new List<string>();
@@ -406,7 +408,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             var pictures = _pictureService.GetPicturesByProductId(product.Id);
             var defaultPicture = pictures.FirstOrDefault();
 
-            return _pictureService.GetPictureUrl(defaultPicture);
+            return _pictureService.GetPictureUrl(defaultPicture.Id);
         }
 
         [HttpPost]
@@ -446,17 +448,18 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
                 #region Categories
 
+                var customerRoleIds = _customerService.GetCustomerRoleIds(_workContext.CurrentCustomer);
                 var categoriesCacheKey =
-                    string.Format(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
-                        product.Id,
-                        _workContext.WorkingLanguage.Id,
-                        string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
-                        _storeContext.CurrentStore.Id);
+                    _cacheKeyService.PrepareKeyForShortTermCache(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
+                        product,
+                        _workContext.WorkingLanguage,
+                        string.Join(",", customerRoleIds),
+                        _storeContext.CurrentStore);
 
                 var categories = _cacheManager.Get(categoriesCacheKey, () =>
                 {
                     return _categoryService.GetProductCategoriesByProductId(product.Id)
-                        .Select(x => x.Category)
+                        .Select(x => _categoryService.GetCategoryById(x.CategoryId))
                         .ToList();
                 });
 
@@ -465,16 +468,16 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                     if (product.ParentGroupedProductId > 0)
                     {
                         categoriesCacheKey =
-                            string.Format(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
+                            _cacheKeyService.PrepareKeyForShortTermCache(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
                                 product.ParentGroupedProductId,
-                                _workContext.WorkingLanguage.Id,
-                                string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
-                                _storeContext.CurrentStore.Id);
+                                _workContext.WorkingLanguage,
+                                string.Join(",", customerRoleIds),
+                                _storeContext.CurrentStore);
 
                         categories = _cacheManager.Get(categoriesCacheKey, () =>
                         {
                             return _categoryService.GetProductCategoriesByProductId(product.ParentGroupedProductId)
-                                .Select(x => x.Category)
+                                .Select(x => _categoryService.GetCategoryById(x.CategoryId))
                                 .ToList();
                         });
                     }
@@ -488,10 +491,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 foreach (var category in categories)
                 {
                     var categoryObj = new Dictionary<string, object>
-                {
-                    {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(category, x => x.Name) ?? "")},
-                    {"id", category.Id}
-                };
+                    {
+                        {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(category, x => x.Name) ?? "")},
+                        {"id", category}
+                    };
 
                     var breadcrumb = new List<object>();
                     if (category.ParentCategoryId > 0)
@@ -502,10 +505,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                         if (parentCategory != null)
                         {
                             var bc1 = new Dictionary<string, object>
-                        {
-                            {"id", parentCategory.Id},
-                            {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(parentCategory, x => x.Name) ?? "")}
-                        };
+                            {
+                                {"id", parentCategory.Id},
+                                {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(parentCategory, x => x.Name) ?? "")}
+                            };
 
                             if (parentCategory.ParentCategoryId > 0)
                                 bc1.Add("parent", parentCategory.ParentCategoryId);
@@ -518,11 +521,11 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                             if (parentParentCategory != null)
                             {
                                 breadcrumb.Add(new Dictionary<string, object>
-                            {
-                                {"id", parentParentCategory.Id},
-                                {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(parentParentCategory, x => x.Name) ?? "")},
-                                {"parent", false}
-                            });
+                                {
+                                    {"id", parentParentCategory.Id},
+                                    {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(parentParentCategory, x => x.Name) ?? "")},
+                                    {"parent", false}
+                                });
                             }
                         }
                     }
@@ -543,16 +546,16 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 var manufacturer = new Dictionary<string, object>();
 
                 var manufacturersCacheKey =
-                    string.Format(ModelCacheEventConsumer.PRODUCT_MANUFACTURERS_MODEL_KEY,
+                    _cacheKeyService.PrepareKeyForShortTermCache (ModelCacheEventConsumer.PRODUCT_MANUFACTURERS_MODEL_KEY,
                         productId,
-                        _workContext.WorkingLanguage.Id,
-                        string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
-                        _storeContext.CurrentStore.Id);
+                        _workContext.WorkingLanguage,
+                        string.Join(",", customerRoleIds),
+                        _storeContext.CurrentStore);
 
                 var manufacturers = _cacheManager.Get(manufacturersCacheKey, () =>
                 {
                     return _manufacturerService.GetProductManufacturersByProductId(productId)
-                        .Select(x => x.Manufacturer)
+                        .Select(x => _manufacturerService.GetManufacturerById(x.ManufacturerId))
                         .ToList();
                 });
 

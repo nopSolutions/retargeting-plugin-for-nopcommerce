@@ -31,7 +31,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache
         /// {2} : roles of the current user
         /// {3} : current store ID
         /// </remarks>
-        public const string PRODUCT_MANUFACTURERS_MODEL_KEY = "Nop.plugins.widgets.retargeting.product.manufacturers-{0}-{1}-{2}-{3}";
+        public static CacheKey PRODUCT_MANUFACTURERS_MODEL_KEY = new CacheKey("Nop.plugins.widgets.retargeting.product.manufacturers-{0}-{1}-{2}-{3}");
         public const string PRODUCT_MANUFACTURERS_PATTERN_KEY = "Nop.plugins.widgets.retargeting.product.manufacturers";
 
         /// <summary>
@@ -43,7 +43,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache
         /// {2} : roles of the current user
         /// {3} : current store ID
         /// </remarks>
-        public const string PRODUCT_CATEGORIES_MODEL_KEY = "Nop.plugins.widgets.retargeting.product.categories-{0}-{1}-{2}-{3}";
+        public static CacheKey PRODUCT_CATEGORIES_MODEL_KEY = new CacheKey("Nop.plugins.widgets.retargeting.product.categories-{0}-{1}-{2}-{3}");
         public const string PRODUCT_CATEGORIES_PATTERN_KEY = "Nop.plugins.widgets.retargeting.categories.manufacturers";
 
         private readonly IStaticCacheManager _cacheManager;

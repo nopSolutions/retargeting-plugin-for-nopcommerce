@@ -59,4 +59,3 @@
         public static string ProductMainPictureIdDetailsPrefix => "main-product-img-lightbox-anchor-";
     }
 }
-

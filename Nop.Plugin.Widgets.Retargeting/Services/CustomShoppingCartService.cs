@@ -6,11 +6,13 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Newtonsoft.Json;
 using Nop.Core;
-using Nop.Core.Data;
+using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Http.Extensions;
+using Nop.Data;
+using Nop.Services.Caching;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Customers;
@@ -45,6 +47,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             CatalogSettings catalogSettings,
             IAclService aclService,
             IActionContextAccessor actionContextAccessor,
+            ICacheKeyService cacheKeyService,
             ICheckoutAttributeParser checkoutAttributeParser,
             ICheckoutAttributeService checkoutAttributeService,
             ICurrencyService currencyService,
@@ -55,12 +58,14 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             IGenericAttributeService genericAttributeService,
             ILocalizationService localizationService,
             IPermissionService permissionService,
+            IPriceCalculationService priceCalculationService,
             IPriceFormatter priceFormatter,
             IProductAttributeParser productAttributeParser,
             IProductAttributeService productAttributeService,
             IProductService productService,
             IRepository<ShoppingCartItem> sciRepository,
             IShippingService shippingService,
+            IStaticCacheManager staticCacheManager,
             IStoreContext storeContext,
             IStoreMappingService storeMappingService,
             IUrlHelperFactory urlHelperFactory,
@@ -68,10 +73,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             IWorkContext workContext,
             OrderSettings orderSettings,
             ShoppingCartSettings shoppingCartSettings) :
-            base(catalogSettings, aclService, actionContextAccessor, checkoutAttributeParser, checkoutAttributeService, currencyService,
+            base(catalogSettings, aclService, actionContextAccessor, cacheKeyService, checkoutAttributeParser, checkoutAttributeService, currencyService,
               customerService, dateRangeService, dateTimeHelper, eventPublisher, genericAttributeService, localizationService, permissionService,
-              priceFormatter, productAttributeParser, productAttributeService, productService, sciRepository, shippingService,
-              storeContext, storeMappingService, urlHelperFactory, urlRecordService, workContext, orderSettings, shoppingCartSettings)
+              priceCalculationService, priceFormatter, productAttributeParser, productAttributeService, productService, sciRepository, shippingService,
+              staticCacheManager, storeContext, storeMappingService, urlHelperFactory, urlRecordService, workContext, orderSettings, shoppingCartSettings)
         {
             _httpContextAccessor = httpContextAccessor;
             _localizationService = localizationService;
@@ -165,17 +170,17 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                     customerId: _workContext.CurrentCustomer.Id, pageSize: 1)
                     .FirstOrDefault();
 
-                if (!(order != null
-                      && order.CreatedOnUtc > DateTime.UtcNow.AddMinutes(-1)
-                      && order.OrderItems.Any(item => item.ProductId == shoppingCartItem.ProductId)))
+                if (!(order != null && 
+                    order.CreatedOnUtc > DateTime.UtcNow.AddMinutes(-1) &&
+                    _orderService.GetOrderItems(order.Id).Any(item => item.ProductId == shoppingCartItem.ProductId)))
                 {
                     if (!shoppingCartItemsToDelete.ContainsKey(shoppingCartItem.Id))
                         shoppingCartItemsToDelete.Add(shoppingCartItem.Id, new Dictionary<string, string>
-                                    {
-                                        {"productId", shoppingCartItem.ProductId.ToString()},
-                                        {"quantity", shoppingCartItem.Quantity.ToString()},
-                                        {"variation",  JsonConvert.SerializeObject(variation)}
-                                    });
+                        {
+                            {"productId", shoppingCartItem.ProductId.ToString()},
+                            {"quantity", shoppingCartItem.Quantity.ToString()},
+                            {"variation",  JsonConvert.SerializeObject(variation)}
+                        });
                 }
 
                 _httpContextAccessor.HttpContext?.Session?.Set("ra_shoppingCartItemsToDelete", shoppingCartItemsToDelete);
