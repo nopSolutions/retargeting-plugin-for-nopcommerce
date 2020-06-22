@@ -59,10 +59,16 @@
                         addToCart(addToCartProductInfo.product_id, addToCartProductInfo.quantity, addToCartProductInfo.variation);
                     } else {
                         //get product info
+                        var postData = {
+                            productId: addToCartProductInfo.product_id
+                        };
+                        addAntiForgeryToken(postData);
                         $.ajax({
                             cache: false,
-                            url: "/WidgetsRetargeting/GetProductInfo?productId=" + addToCartProductInfo.product_id,
-                            type: "post",
+                            type: 'POST',
+                            url: "@Url.Action("GetProductInfo", "WidgetsRetargeting")",
+                            data: postData,
+                            dataType: 'json',
                             success: function (data) {
                                 if (data.result) {
                                     //send product
@@ -80,10 +86,16 @@
                             addToWishlist(addToCartProductInfo.product_id);
                         } else {
                             //get product info
+                            var postData = {
+                                productId: addToCartProductInfo.product_id
+                            };
+                            addAntiForgeryToken(postData);
                             $.ajax({
                                 cache: false,
-                                url: "/WidgetsRetargeting/GetProductInfo?productId=" + addToCartProductInfo.product_id,
-                                type: "post",
+                                type: 'POST',
+                                url: "@Url.Action("GetProductInfo", "WidgetsRetargeting")",
+                                data: postData,
+                                dataType: 'json',
                                 success: function (data) {
                                     if (data.result) {
                                         //send product
@@ -102,7 +114,7 @@
         //user data (login, register)
         @if (Model.RenderSetEmailFunc)
         {
-            <text>
+        <text>
         setUserData("@Model.CustomerModel.Email", "@Model.CustomerModel.Name", "@Model.CustomerModel.Phone");
         </text>
         }
@@ -110,40 +122,40 @@
         //category
         @if (Model.RenderSendCategoryFunc)
         {
+        <text>
+            var parentCategoryId = false;
+            var breadcrumb1;
+            var breadcrumb2;
+
+            //breabcrumb 1st level
+            if ("@Model.CategoryModel.ParentCategoryId" > 0) {
+                breadcrumb1 = {};
+                parentCategoryId = "@Model.CategoryModel.ParentCategoryId";
+                breadcrumb1 = {
+                    "id": parentCategoryId,
+                    "name": "@Model.CategoryModel.ParentCategoryName",
+                    "parent": "@Model.CategoryModel.ParentParentCategoryId"
+                }
+            }
+
+            //breabcrumb 2nd level
+            if ("@Model.CategoryModel.ParentParentCategoryId" > 0) {
+                breadcrumb2 = {};
+                breadcrumb2 =
+                {
+                    "id": "@Model.CategoryModel.ParentParentCategoryId",
+                    "name": "@Model.CategoryModel.ParentParentCategoryName",
+                    "parent": false
+                }
+            }
+
+            //send category script
+            sendCategoryInfo("@Model.CategoryModel.CategoryId", "@Model.CategoryModel.CategoryName",
+                parentCategoryId, breadcrumb1, breadcrumb2);
+           @if (Model.RecommendationCategoryPage) {
             <text>
-        var parentCategoryId = false;
-        var breadcrumb1;
-        var breadcrumb2;
-
-        //breabcrumb 1st level
-        if ("@Model.CategoryModel.ParentCategoryId" > 0) {
-            breadcrumb1 = {};
-            parentCategoryId = "@Model.CategoryModel.ParentCategoryId";
-            breadcrumb1 = {
-                "id": parentCategoryId,
-                "name": "@Model.CategoryModel.ParentCategoryName",
-                "parent": "@Model.CategoryModel.ParentParentCategoryId"
-            }
-        }
-
-        //breabcrumb 2nd level
-        if ("@Model.CategoryModel.ParentParentCategoryId" > 0) {
-            breadcrumb2 = {};
-            breadcrumb2 =
-            {
-                "id": "@Model.CategoryModel.ParentParentCategoryId",
-                "name": "@Model.CategoryModel.ParentParentCategoryName",
-                "parent": false
-            }
-        }
-
-        //send category script
-        sendCategoryInfo("@Model.CategoryModel.CategoryId", "@Model.CategoryModel.CategoryName",
-            parentCategoryId, breadcrumb1, breadcrumb2);
-                    @if (Model.RecommendationCategoryPage) {
-                <text>
-                    addRecommendation("@RetargetingDefaults.RecommendationCategoryPage");
-                </text>
+                addRecommendation("@RetargetingDefaults.RecommendationCategoryPage");
+            </text>
             }
 
         </text>
@@ -152,187 +164,205 @@
         //manufacturer
         @if (Model.RenderSendBrandFunc)
         {
-            <text>
-        sendBrandInfo("@Model.ManufacturerModel.ManufacturerId", "@Model.ManufacturerModel.ManufacturerName");
+        <text>
+            sendBrandInfo("@Model.ManufacturerModel.ManufacturerId", "@Model.ManufacturerModel.ManufacturerName");
         </text>
         }
 
         //product
         @if (Model.RenderSendProductFunc)
         {
-            <text>
-        var productId = "@Model.ProductId";
-        //get product info
-        $.ajax({
-            cache: false,
-            url: "/WidgetsRetargeting/GetProductInfo?productId=" + productId,
-            type: "post",
-            success: function (data) {
-                if (data.result) {
-                    //send product
-                    sendProduct(data.result);
+        <text>
+            var productId = "@Model.ProductId";
+            //get product info
+            var postData = {
+                productId: productId
+            };
+            addAntiForgeryToken(postData);
+            $.ajax({
+                cache: false,
+                type: 'POST',
+                url: "@Url.Action("GetProductInfo", "WidgetsRetargeting")",
+                data: postData,
+                dataType: 'json',
+                success: function (data) {
+                    if (data.result) {
+                        //send product
+                        sendProduct(data.result);
 
-                    //set variation event
-                    $("select[name^=product_attribute_]").on("change", function () {
-                        setVariation(this);
-                    });
-                    $("[name^=product_attribute_][type=radio]").on("change", function () {
-                        setVariation(this);
-                    });
-                    $("[name^=product_attribute_][type=checkbox]").on("change", function () {
-                        setVariation(this);
-                    });
+                        //set variation event
+                        $("select[name^=product_attribute_]").on("change", function () {
+                            setVariation(this);
+                        });
+                        $("[name^=product_attribute_][type=radio]").on("change", function () {
+                            setVariation(this);
+                        });
+                        $("[name^=product_attribute_][type=checkbox]").on("change", function () {
+                            setVariation(this);
+                        });
+                    }
                 }
-            }
-        });
+            });
 
         </text>
 
-         @if (Model.RecommendationProductPage) {
-                <text>
-                    addRecommendation("@RetargetingDefaults.RecommendationProductPage");
-                </text>
-            }
+             @if (Model.RecommendationProductPage) {
+             <text>
+                addRecommendation("@RetargetingDefaults.RecommendationProductPage");
+             </text>
+             }
         }
 
                 //thank you page
         @if (Model.RenderThankYouFunc & Model.RecommendationThankYouPage) {
-                <text>
-                    addRecommendation("@RetargetingDefaults.RecommendationThankYouPage");
-                </text>
-            }
+        <text>
+            addRecommendation("@RetargetingDefaults.RecommendationThankYouPage");
+        </text>
+        }
 
         //add to cart
         @if (Model.RenderAddToCartFunc)
         {
-            <text>
-        //add to cart (product details page)
-        var addToCartDetailsButtons = $("[id^=" + "@Model.AddToCartButtonIdDetailsPrefix" + "]");
-        addToCartDetailsButtons.each(function (index) {
-            $(addToCartDetailsButtons[index]).on("click", function (e) {
-                isProductDetailsButton = true;
+         <text>
+            //add to cart (product details page)
+            var addToCartDetailsButtons = $("[id^=" + "@Model.AddToCartButtonIdDetailsPrefix" + "]");
+            addToCartDetailsButtons.each(function (index) {
+                $(addToCartDetailsButtons[index]).on("click", function (e) {
+                    isProductDetailsButton = true;
+                });
             });
-        });
 
-        //add to cart (product box)
-        var addToCartProductBoxButtons = $("@Model.AddToCartCatalogButtonSelector");
-        addToCartProductBoxButtons.each(function (index) {
-            $(addToCartProductBoxButtons[index]).on("click", function (e) {
-                isProductDetailsButton = false;
+            //add to cart (product box)
+            var addToCartProductBoxButtons = $("@Model.AddToCartCatalogButtonSelector");
+            addToCartProductBoxButtons.each(function (index) {
+                $(addToCartProductBoxButtons[index]).on("click", function (e) {
+                    isProductDetailsButton = false;
+                });
             });
-        });
         </text>
 
             if (Model.AddToCartProductInfo != null)
             {
-                <text>
-        var addToCartProductInfo = JSON.parse('@(Html.Raw(JsonConvert.SerializeObject(Model.AddToCartProductInfo)))');
+            <text>
+                var addToCartProductInfo = JSON.parse('@(Html.Raw(JsonConvert.SerializeObject(Model.AddToCartProductInfo)))');
 
-        if (addToCartProductInfo.shoppingCartType == "@((int)ShoppingCartType.ShoppingCart)") {
-                //get product info
-                $.ajax({
-                    cache: false,
-                    url: "/WidgetsRetargeting/GetProductInfo?productId=" + addToCartProductInfo.product_id,
-                    type: "post",
-                    success: function (data) {
-                        if (data.result) {
-                            //send product
-                            sendProduct(data.result);
-                            //add to cart
-                            addToCart(addToCartProductInfo.product_id, addToCartProductInfo.quantity, addToCartProductInfo.variation);
-                        }
-                    }
-                });
-        } else {
-            if (addToCartProductInfo.shoppingCartType == "@((int) ShoppingCartType.Wishlist)") {
+                if (addToCartProductInfo.shoppingCartType == "@((int)ShoppingCartType.ShoppingCart)") {
                     //get product info
+                    var postData = {
+                        productId: addToCartProductInfo.product_id
+                    };
+                    addAntiForgeryToken(postData);
                     $.ajax({
                         cache: false,
-                        url: "/WidgetsRetargeting/GetProductInfo?productId=" + addToCartProductInfo.product_id,
-                        type: "post",
+                        type: 'POST',
+                        url: "@Url.Action("GetProductInfo", "WidgetsRetargeting")",
+                        data: postData,
+                        dataType: 'json',
                         success: function (data) {
                             if (data.result) {
                                 //send product
                                 sendProduct(data.result);
-                                //add to wishlist
-                                addToWishlist(addToCartProductInfo.product_id);
+                                //add to cart
+                                addToCart(addToCartProductInfo.product_id, addToCartProductInfo.quantity, addToCartProductInfo.variation);
                             }
                         }
                     });
-            }
-        }
+                } else {
+                    if (addToCartProductInfo.shoppingCartType == "@((int) ShoppingCartType.Wishlist)") {
+                        //get product info
+                        var postData = {
+                            productId: addToCartProductInfo.product_id
+                        };
+                        addAntiForgeryToken(postData);
+                        $.ajax({
+                            cache: false,
+                            type: 'POST',
+                            url: "@Url.Action("GetProductInfo", "WidgetsRetargeting")",
+                            data: postData,
+                            dataType: 'json',
+                            success: function (data) {
+                                if (data.result) {
+                                    //send product
+                                    sendProduct(data.result);
+                                    //add to wishlist
+                                    addToWishlist(addToCartProductInfo.product_id);
+                                }
+                            }
+                        });
+                    }
+                }
 
-                </text>
+            </text>
             }
-        }
+         }
 
         //remove from cart
         @foreach (var item in Model.CartItemsToDelete)
         {
-            <text>
-                removeFromCart('@item.Value["productId"]', '@item.Value["quantity"]', '@(Html.Raw(item.Value["variation"]))');
-            </text>
+        <text>
+            removeFromCart('@item.Value["productId"]', '@item.Value["quantity"]', '@(Html.Raw(item.Value["variation"]))');
+        </text>
         }
 
         //add to wishlist
         @if (Model.RenderAddToWishlistFunc)
         {
-            <text>
-        //add to wishlist (product details page)
-        var addToWishlistDetailsButtons = $("[id^=" + "@Model.AddToWishlistButtonIdDetailsPrefix" + "]");
-        addToWishlistDetailsButtons.each(function (index) {
-            $(addToWishlistDetailsButtons[index]).on("click", function (e) {
-                isProductDetailsButton = true;
+        <text>
+            //add to wishlist (product details page)
+            var addToWishlistDetailsButtons = $("[id^=" + "@Model.AddToWishlistButtonIdDetailsPrefix" + "]");
+            addToWishlistDetailsButtons.each(function (index) {
+                $(addToWishlistDetailsButtons[index]).on("click", function (e) {
+                    isProductDetailsButton = true;
+                });
             });
-        });
 
-        //add to wishlist (product box)
-        var addToWishlistProductBoxButtons = $("@Model.ProductBoxSelector" + " "
-                                                + "@Model.AddToWishlistCatalogButtonSelector");
-        addToWishlistProductBoxButtons.each(function (index) {
-            $(addToWishlistProductBoxButtons[index]).on("click", function (e) {
-                isProductDetailsButton = false;
+            //add to wishlist (product box)
+            var addToWishlistProductBoxButtons = $("@Model.ProductBoxSelector" + " "
+                                                    + "@Model.AddToWishlistCatalogButtonSelector");
+            addToWishlistProductBoxButtons.each(function (index) {
+                $(addToWishlistProductBoxButtons[index]).on("click", function (e) {
+                    isProductDetailsButton = false;
+                });
             });
-        });
         </text>
         }
 
         //click product image
         @if (Model.RenderClickImageFunc)
         {
-            <text>
-        var productMainPicture = $("[id^=" + "@Model.ProductMainPictureIdDetailsPrefix" + "]");
-        $(productMainPicture[0]).on("click", function (e) {
-            var productId = $(this).attr("id").replace("@Model.ProductMainPictureIdDetailsPrefix", "");
-            clickImage(productId);
-        });
+         <text>
+            var productMainPicture = $("[id^=" + "@Model.ProductMainPictureIdDetailsPrefix" + "]");
+            $(productMainPicture[0]).on("click", function (e) {
+                var productId = $(this).attr("id").replace("@Model.ProductMainPictureIdDetailsPrefix", "");
+                clickImage(productId);
+            });
         </text>
         }
 
         //add product review
         @if (Model.RenderCommentOnProductFunc)
         {
-            <text>
-        var resultBlock = $("@Model.ProductReviewAddedResultSelector");
-        if (resultBlock.length > 0) {
-            var productId = "@Model.ProductId";
-            commentOnProduct(productId);
-        }
+        <text>
+            var resultBlock = $("@Model.ProductReviewAddedResultSelector");
+            if (resultBlock.length > 0) {
+                var productId = "@Model.ProductId";
+                commentOnProduct(productId);
+            }
         </text>
         }
 
         //send order
         @if (Model.RenderSendOrderFunc)
         {
-            <text>
+        <text>
             var saveOrderProducts = [];
 
             var orderInfo = { "discount_code": [] };
             @foreach(string code in Model.OrderModel.DiscountCode)
             {
-                <text>
+            <text>
                 orderInfo.discount_code.push("@code");
-                </text>
+            </text>
             }
 
             var saveOrderInfo = {
@@ -354,19 +384,19 @@
             };
             </text>
 
-                foreach (var orderItem in Model.OrderModel.OrderItems)
-                {
-                    <text>
-                        var productObj@(orderItem.Id) = {};
-                        productObj@(orderItem.Id)["id"] = "@orderItem.Id";
-                        productObj@(orderItem.Id)["quantity"] = "@orderItem.Quantity";
-                        productObj@(orderItem.Id)["price"] = "@orderItem.Price";
-                        productObj@(orderItem.Id)["variation_code"] = "@orderItem.VariationCode";
-                        saveOrderProducts.push(productObj@(orderItem.Id));
-                    </text>
-                }
-
+            foreach (var orderItem in Model.OrderModel.OrderItems)
+            {
                 <text>
+                    var productObj@(orderItem.Id) = {};
+                    productObj@(orderItem.Id)["id"] = "@orderItem.Id";
+                    productObj@(orderItem.Id)["quantity"] = "@orderItem.Quantity";
+                    productObj@(orderItem.Id)["price"] = "@orderItem.Price";
+                    productObj@(orderItem.Id)["variation_code"] = "@orderItem.VariationCode";
+                    saveOrderProducts.push(productObj@(orderItem.Id));
+                </text>
+            }
+
+            <text>
             saveOrder(saveOrderInfo, saveOrderProducts);
             </text>
         }
@@ -374,63 +404,63 @@
         //help page
         @if (Model.RenderVisitHelpPageFunc)
         {
-            <text>
-        visitHelpPage();
+        <text>
+            visitHelpPage();
         </text>
         }
 
         //home page
         @if (Model.RenderVisitHomePageFunc)
         {
-            <text>
-                visitHomePage();
-            </text>
+        <text>
+            visitHomePage();
+        </text>
 
             @if (Model.RecommendationHomePage) {
-                <text>
-                    addRecommendation("@RetargetingDefaults.RecommendationHomePage");
-                </text>
+            <text>
+                addRecommendation("@RetargetingDefaults.RecommendationHomePage");
+            </text>
             }
         }
 
         //search page
         @if (Model.RenderSendSearchTermFunc)
         {
-            <text>
-        var term = $('input#q')[0].value
-        sendSearchTerm(term);
+        <text>
+            var term = $('input#q')[0].value
+            sendSearchTerm(term);
         </text>
             @if (Model.RecommendationSearchPage) {
-                <text>
-                    addRecommendation("@RetargetingDefaults.RecommendationSearchPage");
-                </text>
+            <text>
+                addRecommendation("@RetargetingDefaults.RecommendationSearchPage");
+            </text>
             }
         }
 
         //page not found
         @if (Model.RenderPageNotFoundFunc)
         {
-            <text>
-        pageNotFound();
+        <text>
+            pageNotFound();
         </text>
             @if (Model.RecommendationPageNotFound) {
-                <text>
-                    addRecommendation("@RetargetingDefaults.RecommendationPageNotFound");
-                </text>
+            <text>
+                addRecommendation("@RetargetingDefaults.RecommendationPageNotFound");
+            </text>
             }
         }
 
         //send cart item ids
         @if (Model.RenderCheckoutIdsFunc)
         {
-            <text>
-        var ids = "@Model.CartItemIds".split(",").filter(function (el) { return el.length !== 0 });
-        checkoutIds(ids);
+        <text>
+            var ids = "@Model.CartItemIds".split(",").filter(function (el) { return el.length !== 0 });
+            checkoutIds(ids);
         </text>
             @if (Model.RecommendationCheckoutPage) {
-                <text>
-                    addRecommendation("@RetargetingDefaults.RecommendationCheckoutPage");
-                </text>
+            <text>
+                addRecommendation("@RetargetingDefaults.RecommendationCheckoutPage");
+            </text>
             }
         }
     });
@@ -573,12 +603,19 @@
     function setVariation(attrInput) {
         var productId = $(attrInput).closest("[data-productid]").attr("data-productid");
 
+        var postData = {
+            productId: productId,
+            form: $("#product-details-form").serialize()
+        }
+        addAntiForgeryToken(postData);
+
         $.ajax({
             cache: false,
             async: true,
-            url: "/WidgetsRetargeting/IsProductCombinationInStock?productId=" + productId,
-            data: $("#product-details-form").serialize(),
-            type: "post",
+            type: 'POST',
+            url: "@Url.Action("IsProductCombinationInStock", "WidgetsRetargeting")",
+            data: postData,
+            dataType: "json",
             success: function (data) {
                 var productVariation = false;
 
