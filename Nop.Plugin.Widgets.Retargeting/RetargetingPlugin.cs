@@ -350,10 +350,10 @@ namespace Nop.Plugin.Widgets.Retargeting
             return productFeed;
         }
 
-        public void GetProductPrice(Product product, out decimal price, out decimal priceWithDiscount)
+        public void GetProductPrice(Product product, out decimal priceBase, out decimal priceWithDiscountBase)
         {
-            price = decimal.Zero;
-            priceWithDiscount = decimal.Zero;
+            priceBase = decimal.Zero;
+            priceWithDiscountBase = decimal.Zero;
 
             if (_permissionService.Authorize(StandardPermissionProvider.DisplayPrices))
             {
@@ -361,16 +361,13 @@ namespace Nop.Plugin.Widgets.Retargeting
                 {
                     if (!product.CallForPrice)
                     {
-                        var oldPriceBase = _taxService.GetProductPrice(product, product.OldPrice, out _);
-                        var finalPriceWithDiscountBase = _taxService.GetProductPrice(product, _priceCalculationService.GetFinalPrice(product, _workContext.CurrentCustomer, includeDiscounts: true), out _);
+                        priceBase = _taxService.GetProductPrice(product, product.OldPrice, out _);
+                        priceWithDiscountBase = _taxService.GetProductPrice(product, _priceCalculationService.GetFinalPrice(product, _workContext.CurrentCustomer, includeDiscounts: true), out _);
 
-                        price = _currencyService.ConvertFromPrimaryStoreCurrency(oldPriceBase, _workContext.WorkingCurrency);
-                        priceWithDiscount = _currencyService.ConvertFromPrimaryStoreCurrency(finalPriceWithDiscountBase, _workContext.WorkingCurrency);
-
-                        if (price == 0)
+                        if (priceBase == 0)
                         {
-                            price = priceWithDiscount;
-                            priceWithDiscount = 0;
+                            priceBase = priceWithDiscountBase;
+                            priceWithDiscountBase = 0;
                         }
                     }
                 }
