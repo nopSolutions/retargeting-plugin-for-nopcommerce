@@ -346,10 +346,10 @@ namespace Nop.Plugin.Widgets.Retargeting
             return productFeed;
         }
 
-        public void GetProductPrice(Product product, out decimal price, out decimal priceWithDiscount)
+        public void GetProductPrice(Product product, out decimal priceBase, out decimal priceWithDiscountBase)
         {
-            price = decimal.Zero;
-            priceWithDiscount = decimal.Zero;
+            priceBase = decimal.Zero;
+            priceWithDiscountBase = decimal.Zero;
 
             if (_permissionService.Authorize(StandardPermissionProvider.DisplayPrices))
             {
@@ -358,17 +358,14 @@ namespace Nop.Plugin.Widgets.Retargeting
                     if (!product.CallForPrice)
                     {
                         decimal taxRate;
-                        decimal oldPriceBase = _taxService.GetProductPrice(product, product.OldPrice, out taxRate);
-                        decimal finalPriceWithDiscountBase = _taxService.GetProductPrice(product, _priceCalculationService.GetFinalPrice(product, _workContext.CurrentCustomer, includeDiscounts: true), out taxRate);
+	                      priceBase = _taxService.GetProductPrice(product, product.OldPrice, out taxRate);
+                        priceWithDiscountBase = _taxService.GetProductPrice(product, _priceCalculationService.GetFinalPrice(product, _workContext.CurrentCustomer, includeDiscounts: true), out taxRate);
 
-                        price = _currencyService.ConvertFromPrimaryStoreCurrency(oldPriceBase, _workContext.WorkingCurrency);
-                        priceWithDiscount = _currencyService.ConvertFromPrimaryStoreCurrency(finalPriceWithDiscountBase, _workContext.WorkingCurrency);
-
-                        if (price == 0)
+                        if (priceBase == 0)
                         {
-                            price = priceWithDiscount;
-                            priceWithDiscount = 0;
-                        }
+                          priceBase = priceWithDiscountBase;
+                          priceWithDiscountBase = 0;
+                        }                    
                     }
                 }
             }
