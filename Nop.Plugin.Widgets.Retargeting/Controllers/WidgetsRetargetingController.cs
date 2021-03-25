@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Web;
 using System.Web.Mvc;
 using Nop.Core;
@@ -13,12 +14,10 @@ using Nop.Core.Domain.Media;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Tax;
 using Nop.Core.Plugins;
-using Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache;
 using Nop.Plugin.Widgets.Retargeting.Models;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Configuration;
-using Nop.Services.Customers;
 using Nop.Services.Discounts;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
@@ -585,7 +584,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         [NopHttpsRequirement(SslRequirement.No)]
         public ActionResult ProductStockFeed()
         {
-            var productFeed = new object();
+            var fileName = string.Format("feed_{0}_{1}.csv", DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"), CommonHelper.GenerateRandomDigitCode(4));
+            var result = string.Empty;
+
             try
             {
                 var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
@@ -596,7 +597,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 if (plugin == null)
                     throw new Exception("Cannot load the plugin");
 
-                productFeed = plugin.GenerateProductStockFeed();
+                result = plugin.ExportProductsToCsv(Url);
             }
             catch (Exception exc)
             {
@@ -604,7 +605,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 _logger.Error(exc.Message, exc);
             }
 
-            return Json(productFeed, JsonRequestBehavior.AllowGet);
+            return File(Encoding.UTF8.GetBytes(result), MimeTypes.TextCsv, fileName);
         }
 
         [NopHttpsRequirement(SslRequirement.No)]
@@ -710,39 +711,15 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
                 #region Categories
 
-                var categoriesCacheKey =
-                    string.Format(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
-                        product.Id,
-                        _workContext.WorkingLanguage.Id,
-                        string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
-                        _storeContext.CurrentStore.Id);
-
-                var categories = _cacheManager.Get(categoriesCacheKey, () =>
-                {
-                    return _categoryService.GetProductCategoriesByProductId(product.Id)
-                        .Select(x => x.Category)
-                        .ToList();
-                });
+                var categories = _categoryService.GetProductCategoriesByProductId(product.Id)
+                    .Select(x => x.Category)
+                    .ToList();
 
                 if (categories.Count == 0)
-                {
                     if (product.ParentGroupedProductId > 0)
-                    {
-                        categoriesCacheKey =
-                            string.Format(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
-                                product.ParentGroupedProductId,
-                                _workContext.WorkingLanguage.Id,
-                                string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
-                                _storeContext.CurrentStore.Id);
-
-                        categories = _cacheManager.Get(categoriesCacheKey, () =>
-                        {
-                            return _categoryService.GetProductCategoriesByProductId(product.ParentGroupedProductId)
+                        categories = _categoryService.GetProductCategoriesByProductId(product.ParentGroupedProductId)
                                 .Select(x => x.Category)
                                 .ToList();
-                        });
-                    }
-                }
 
                 //product must have at least one category
                 if (categories.Count == 0)
@@ -752,10 +729,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 foreach (var category in categories)
                 {
                     var categoryObj = new Dictionary<string, object>
-                {
-                    {"name", HttpUtility.JavaScriptStringEncode(category.GetLocalized(x => x.Name))},
-                    {"id", category.Id}
-                };
+                    {
+                        {"name", HttpUtility.JavaScriptStringEncode(category.GetLocalized(x => x.Name))},
+                        {"id", category.Id}
+                    };
 
                     var breadcrumb = new List<object>();
                     if (category.ParentCategoryId > 0)
@@ -766,10 +743,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                         if (parentCategory != null)
                         {
                             var bc1 = new Dictionary<string, object>
-                        {
-                            {"id", parentCategory.Id},
-                            {"name", HttpUtility.JavaScriptStringEncode(parentCategory.GetLocalized(x => x.Name))}
-                        };
+                            {
+                                {"id", parentCategory.Id},
+                                {"name", HttpUtility.JavaScriptStringEncode(parentCategory.GetLocalized(x => x.Name))}
+                            };
 
                             if (parentCategory.ParentCategoryId > 0)
                                 bc1.Add("parent", parentCategory.ParentCategoryId);
@@ -805,20 +782,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 #region Manufacturer
 
                 var manufacturer = new Dictionary<string, object>();
-
-                var manufacturersCacheKey =
-                    string.Format(ModelCacheEventConsumer.PRODUCT_MANUFACTURERS_MODEL_KEY,
-                        productId,
-                        _workContext.WorkingLanguage.Id,
-                        string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
-                        _storeContext.CurrentStore.Id);
-
-                var manufacturers = _cacheManager.Get(manufacturersCacheKey, () =>
-                {
-                    return _manufacturerService.GetProductManufacturersByProductId(productId)
+                var manufacturers = _manufacturerService.GetProductManufacturersByProductId(productId)
                         .Select(x => x.Manufacturer)
                         .ToList();
-                });
 
                 if (manufacturers.Count > 0)
                 {

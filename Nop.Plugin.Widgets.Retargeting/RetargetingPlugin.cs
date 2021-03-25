@@ -22,6 +22,15 @@ using Nop.Services.Logging;
 using Nop.Services.Orders;
 using Nop.Services.Security;
 using Nop.Services.Tax;
+using Nop.Services.Seo;
+using System.Web.Mvc;
+using Nop.Core.Caching;
+using Nop.Services.Media;
+using Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache;
+using Newtonsoft.Json;
+using Nop.Services.Stores;
+using System.Text.RegularExpressions;
+using Nop.Services.Customers;
 
 namespace Nop.Plugin.Widgets.Retargeting
 {
@@ -37,11 +46,18 @@ namespace Nop.Plugin.Widgets.Retargeting
         private readonly IShoppingCartService _shoppingCartService;
         private readonly IProductAttributeService _productAttributeService;
         private readonly IPriceCalculationService _priceCalculationService;
+        private readonly IPictureService _pictureService;
+        private readonly ICategoryService _categoryService;
+        private readonly IAclService _aclService;
+        private readonly IStoreMappingService _storeMappingService;
+        private readonly IManufacturerService _manufacturerService;
 
         private readonly ILogger _logger;
         private readonly IWorkContext _workContext;
         private readonly IStoreContext _storeContext;
         private readonly IProductAttributeParser _productAttributeParser;
+        private readonly IWebHelper _webHelper;
+        private readonly ICacheManager _cacheManager;
 
         private readonly ShoppingCartSettings _shoppingCartSettings;
         private readonly OrderSettings _orderSettings;
@@ -58,11 +74,18 @@ namespace Nop.Plugin.Widgets.Retargeting
             IShoppingCartService shoppingCartService,
             IProductAttributeService productAttributeService,
             IPriceCalculationService priceCalculationService,
+            IPictureService pictureService,
+            ICategoryService categoryService,
+            IAclService aclService,
+            IStoreMappingService storeMappingService,
+            IManufacturerService manufacturerService,
 
             ILogger logger,
             IWorkContext workContext,
             IStoreContext storeContext,
             IProductAttributeParser productAttributeParser,
+            IWebHelper webHelper,
+            ICacheManager cacheManager,
 
             ShoppingCartSettings shoppingCartSettings,
             OrderSettings orderSettings,
@@ -78,15 +101,32 @@ namespace Nop.Plugin.Widgets.Retargeting
             _shoppingCartService = shoppingCartService;
             _productAttributeService = productAttributeService;
             _priceCalculationService = priceCalculationService;
+            _pictureService = pictureService;
+            _categoryService = categoryService;
+            _aclService = aclService;
+            _storeMappingService = storeMappingService;
+            _manufacturerService = manufacturerService;
 
             _logger = logger;
             _workContext = workContext;
             _storeContext = storeContext;
             _productAttributeParser = productAttributeParser;
+            _webHelper = webHelper;
+            _cacheManager = cacheManager;
 
             _shoppingCartSettings = shoppingCartSettings;
             _orderSettings = orderSettings;
             _mediaSettings = mediaSettings;
+        }
+
+        /// <summary>
+        /// Normalizes a string value
+        /// </summary>
+        /// <param name="stringValue">Normalized value</param>
+        /// <returns></returns>
+        public string NormalizeStringValue(string stringValue)
+        {
+            return stringValue.Trim().Replace(",", "&#44;").Replace("\"", "&#34;");
         }
 
         /// <summary>
@@ -250,9 +290,18 @@ namespace Nop.Plugin.Widgets.Retargeting
             _settingService.SaveSetting(_mediaSettings);
         }
 
-        public List<Dictionary<string, object>> GenerateProductStockFeed()
+        /// <summary>
+        /// Export products to CSV
+        /// </summary>
+        /// <returns>Result in CSV format</returns>
+        public string ExportProductsToCsv(UrlHelper urlHelper)
         {
-            var productFeed = new List<Dictionary<string, object>>();
+            const string separator = ",";
+            var sb = new StringBuilder();
+
+            //headers
+            sb.Append("product id,product name,product url,image url,stock,price,sale price,brand,category,extra data");
+            sb.Append(Environment.NewLine);
 
             var products = _productService.SearchProducts(visibleIndividuallyOnly: true);
             foreach (var product in products)
@@ -270,80 +319,166 @@ namespace Nop.Plugin.Widgets.Retargeting
                         {
                             //grouped products could have several child products
                             var associatedProducts = _productService.GetAssociatedProducts(product.Id);
-                            productsToProcess.AddRange(associatedProducts);
+
+                            if (product.VisibleIndividually)
+                                productsToProcess.AddRange(associatedProducts);
                         }
                         break;
                     default:
                         continue;
                 }
 
-                foreach (var productToProcess in productsToProcess)
+                foreach (var currentProduct in productsToProcess)
                 {
-                    var productInfo = new Dictionary<string, object>
-                    {
-                        {"id", productToProcess.Id.ToString()},
-                        {
-                            "product_availability",
-                            product.AvailableEndDateTimeUtc != null
-                                ? product.AvailableEndDateTimeUtc.Value.ToString("yy-MM-dd hh:mm:ss")
-                                : null
-                        }
-                    };
+                    //product id
+                    sb.Append(currentProduct.Id);
+                    sb.Append(separator);
 
+                    //product name
+                    sb.Append(NormalizeStringValue(currentProduct.Name));
+                    sb.Append(separator);
+
+                    //product url
+                    sb.Append(urlHelper.RouteUrl("Product", new { SeName = currentProduct.GetSeName() }, _webHelper.IsCurrentConnectionSecured() ? "https" : "http"));
+                    sb.Append(separator);
+
+                    //image url
+                    var productPicturesCacheKey = string.Format(ModelCacheEventConsumer.PRODUCT_PICTURES_MODEL_KEY,
+                        currentProduct.Id, _webHelper.IsCurrentConnectionSecured(),
+                        _storeContext.CurrentStore.Id);
+
+                    var cachedProductPictures = _cacheManager.Get(productPicturesCacheKey, () =>
+                    {
+                        return _pictureService.GetPicturesByProductId(currentProduct.Id);
+                    });
+
+                    var imageUrl = cachedProductPictures.FirstOrDefault() != null ? _pictureService.GetPictureUrl(cachedProductPictures.FirstOrDefault()) : "";
+
+                    sb.Append(imageUrl);
+                    sb.Append(separator);
+
+                    //stock
+                    sb.Append(currentProduct.StockQuantity);
+                    sb.Append(separator);
+
+                    //price
                     decimal price;
                     decimal priceWithDiscount;
-                    GetProductPrice(product, out price, out priceWithDiscount);
+                    GetProductPrice(currentProduct, out price, out priceWithDiscount);
 
-                    productInfo.Add("price", price.ToString(new CultureInfo("en-US", false).NumberFormat));
-                    productInfo.Add("promo", priceWithDiscount.ToString(new CultureInfo("en-US", false).NumberFormat));
-                    productInfo.Add("promo_price_end_date", null);
+                    if (price == 0)
+                        price = decimal.One;
 
-                    var inventory = new Dictionary<string, object>();
-                    var attributes = new Dictionary<string, object>();
+                    if (priceWithDiscount == 0)
+                        priceWithDiscount = price;
 
-                    var allAttributesXml = _productAttributeParser.GenerateAllCombinations(product, true);
+                    sb.Append(price.ToString(new CultureInfo("en-US", false).NumberFormat));
+                    sb.Append(separator);
+
+                    //sale price
+                    sb.Append(priceWithDiscount.ToString(new CultureInfo("en-US", false).NumberFormat));
+                    sb.Append(separator);
+
+                    //brand
+                    var manufacturerName = "";
+                    var productManufacturers = _manufacturerService.GetProductManufacturersByProductId(currentProduct.Id);
+                    var defaultProductManufacturer = productManufacturers.FirstOrDefault();
+
+                    if (defaultProductManufacturer != null)
+                        manufacturerName = NormalizeStringValue(defaultProductManufacturer.Manufacturer.Name);
+
+                    sb.Append(manufacturerName);
+                    sb.Append(separator);
+
+                    //category
+                    var categoryName = "Default category";
+                    var productCategories = _categoryService.GetProductCategoriesByProductId(currentProduct.Id);
+                    var defaultProductCategory = productCategories.FirstOrDefault();
+
+                    if (defaultProductCategory != null)
+                        categoryName = NormalizeStringValue(defaultProductCategory.Category.Name);
+
+                    sb.Append(categoryName);
+                    sb.Append(separator);
+
+                    //extra data
+                    //categories (breadcrumb)
+                    var categoryBreadcrumbCacheKey = string.Format(ModelCacheEventConsumer.PRODUCT_BREADCRUMB_MODEL_KEY,
+                        currentProduct.Id,
+                        _workContext.WorkingLanguage.Id,
+                        string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
+                        _storeContext.CurrentStore.Id);
+
+                    var cachedCategoryBreadcrumb = _cacheManager.Get(categoryBreadcrumbCacheKey, () =>
+                    {
+                        var categoryBreadcrumb = new List<string>();
+                        if (defaultProductCategory != null)
+                            foreach (var catBr in defaultProductCategory.Category.GetCategoryBreadCrumb(_categoryService, _aclService, _storeMappingService))
+                                categoryBreadcrumb.Add(NormalizeStringValue(catBr.GetLocalized(x => x.Name)));
+
+                        return categoryBreadcrumb;
+                    });
+
+                    var categoryString = string.Join("|", cachedCategoryBreadcrumb);
+
+                    //attributes
+                    var variations = new List<Dictionary<string, object>>();
+                    var attributeCodes = new List<string>();
+
+                    var allAttributesXml = _productAttributeParser.GenerateAllCombinations(currentProduct, true);
                     foreach (var attributesXml in allAttributesXml)
                     {
                         var warnings = new List<string>();
                         warnings.AddRange(_shoppingCartService.GetShoppingCartItemAttributeWarnings(_workContext.CurrentCustomer,
-                            ShoppingCartType.ShoppingCart, product, 1, attributesXml, true));
+                            ShoppingCartType.ShoppingCart, currentProduct, 1, attributesXml, true));
                         if (warnings.Count != 0)
                             continue;
 
-                        var inStock = true;
-                        var existingCombination = _productAttributeParser.FindProductAttributeCombination(product, attributesXml);
+                        var existingCombination = _productAttributeParser.FindProductAttributeCombination(currentProduct, attributesXml);
                         if (existingCombination != null)
-                            inStock = existingCombination.StockQuantity > 0;
+                        {
+                            var varCode = GetCombinationCode(attributesXml);
+                            if (!attributeCodes.Contains(varCode))
+                            {
+                                attributeCodes.Add(varCode);
 
-                        var varCode = GetCombinationCode(attributesXml);
-                        if (!attributes.ContainsKey(varCode))
-                            attributes.Add(varCode, inStock);
+                                var combinationPrice = existingCombination.OverriddenPrice ?? price;
+                                var combinationPriceWithDiscount = existingCombination.OverriddenPrice ?? priceWithDiscount;
+
+                                variations.Add(new Dictionary<string, object> {
+                                    {"\"code\"", $"\"{varCode}\"" },
+                                    {"\"price\"", $"\"{combinationPrice}\"" },
+                                    {"\"sale price\"", $"\"{combinationPriceWithDiscount}\"" },
+                                    {"\"stock\"", existingCombination.StockQuantity},
+                                    {"\"margin\"", null},
+                                    {"\"in_supplier_stock\"", existingCombination.StockQuantity > 0 } 
+                                });
+                            }
+                        }
                     }
 
-                    var variation = new Dictionary<string, object>
+                    //media gallery
+                    var imageUrls = new List<string>();
+                    foreach (var picture in cachedProductPictures)
+                        imageUrls.Add($"\"{_pictureService.GetPictureUrl(picture)}\"".Replace("/", "\\/"));
+
+                    //extra data object
+                    var extraData = new Dictionary<string, object>
                     {
-                        {"variation", attributes}
+                        {"\"margin\"", null},
+                        {"\"categories\"", $"\"{categoryString}\"" },
+                        {"\"variations\"",  variations},
+                        {"\"media_gallery\"", imageUrls},
+                        {"\"in_supplier_stock\"", currentProduct.StockQuantity > 0 }
                     };
 
-                    if (attributes.Count > 0)
-                    {
-                        inventory.Add("variations", true);
-                        inventory.Add("stock", variation);
-                    }
-                    else
-                    {
-                        inventory.Add("variations", false);
-                        inventory.Add("stock", product.StockQuantity > 0);
-                    }
+                    sb.Append($"\"{Regex.Unescape(JsonConvert.SerializeObject(extraData))}\"");
+                    sb.Append(separator);
 
-                    productInfo.Add("inventory", inventory);
-                    productInfo.Add("user_groups", false);
-
-                    productFeed.Add(productInfo);
+                    sb.Append(Environment.NewLine);
                 }
             }
-
-            return productFeed;
+            return sb.ToString();
         }
 
         public void GetProductPrice(Product product, out decimal priceBase, out decimal priceWithDiscountBase)
@@ -358,14 +493,14 @@ namespace Nop.Plugin.Widgets.Retargeting
                     if (!product.CallForPrice)
                     {
                         decimal taxRate;
-	                      priceBase = _taxService.GetProductPrice(product, product.OldPrice, out taxRate);
+                        priceBase = _taxService.GetProductPrice(product, product.OldPrice, out taxRate);
                         priceWithDiscountBase = _taxService.GetProductPrice(product, _priceCalculationService.GetFinalPrice(product, _workContext.CurrentCustomer, includeDiscounts: true), out taxRate);
 
                         if (priceBase == 0)
                         {
-                          priceBase = priceWithDiscountBase;
-                          priceWithDiscountBase = 0;
-                        }                    
+                            priceBase = priceWithDiscountBase;
+                            priceWithDiscountBase = 0;
+                        }
                     }
                 }
             }
