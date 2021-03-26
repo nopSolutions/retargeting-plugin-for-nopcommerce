@@ -2,7 +2,7 @@
   "Group": "Widgets",
   "FriendlyName": "Retargeting",
   "SystemName": "Widgets.Retargeting",
-  "Version": "1.00",
+  "Version": "1.02",
   "SupportedVersions": [ "4.00" ],
   "Author": "nopCommerce team",
   "DisplayOrder": 1,

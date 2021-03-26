@@ -8,18 +8,13 @@ using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Media;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Tax;
-using Nop.Core.Plugins;
 using Nop.Plugin.Widgets.Retargeting.Models;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Configuration;
 using Nop.Services.Customers;
 using Nop.Services.Discounts;
-using Nop.Services.Localization;
-using Nop.Services.Logging;
-using Nop.Services.Media;
 using Nop.Services.Orders;
-using Nop.Services.Stores;
 using Nop.Services.Topics;
 using OrderItem = Nop.Plugin.Widgets.Retargeting.Models.OrderItem;
 using Microsoft.AspNetCore.Http;
@@ -31,28 +26,20 @@ using Nop.Web.Framework.Components;
 
 namespace Nop.Plugin.Widgets.Retargeting.Components
 {
-    [ViewComponent(Name = "WidgetsRetargeting")]
+  [ViewComponent(Name = "WidgetsRetargeting")]
     public class WidgetsRetargetingViewComponent : NopViewComponent
     {
         private readonly ITopicService _topicService;
-        private readonly IStoreService _storeService;
         private readonly IOrderService _orderService;
-        private readonly IPictureService _pictureService;
         private readonly ISettingService _settingService;
         private readonly IProductService _productService;
         private readonly IDiscountService _discountService;
         private readonly ICategoryService _categoryService;
         private readonly ICustomerService _customerService;
-        private readonly IShoppingCartService _shoppingCartService;
         private readonly IManufacturerService _manufacturerService;
-        private readonly ILocalizationService _localizationService;
-        private readonly IProductAttributeService _productAttributeService;
 
-        private readonly ILogger _logger;
         private readonly IWorkContext _workContext;
-        private readonly IPluginFinder _pluginFinder;
         private readonly IStoreContext _storeContext;
-        private readonly ICacheManager _cacheManager;
         private readonly IProductAttributeParser _productAttributeParser;
 
         private readonly MediaSettings _mediaSettings;
@@ -61,24 +48,16 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
         private readonly IActionContextAccessor _actionContextAccessor;
 
         public WidgetsRetargetingViewComponent(ITopicService topicService,
-            IStoreService storeService,
             IOrderService orderService,
-            IPictureService pictureService,
             ISettingService settingService,
             IProductService productService,
             IDiscountService discountService,
             ICategoryService categoryService,
             ICustomerService customerService,
-            IShoppingCartService shoppingCartService,
             IManufacturerService manufacturerService,
-            ILocalizationService localizationService,
-            IProductAttributeService productAttributeService,
 
-            ILogger logger,
             IWorkContext workContext,
-            IPluginFinder pluginFinder,
             IStoreContext storeContext,
-            ICacheManager cacheManager,
             IProductAttributeParser productAttributeParser,
 
             MediaSettings mediaSettings,
@@ -87,24 +66,16 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             IActionContextAccessor actionContextAccessor)
         {
             _topicService = topicService;
-            _storeService = storeService;
             _orderService = orderService;
-            _pictureService = pictureService;
             _settingService = settingService;
             _productService = productService;
             _discountService = discountService;
             _categoryService = categoryService;
             _customerService = customerService;
-            _shoppingCartService = shoppingCartService;
             _manufacturerService = manufacturerService;
-            _localizationService = localizationService;
-            _productAttributeService = productAttributeService;
 
-            _logger = logger;
             _workContext = workContext;
-            _pluginFinder = pluginFinder;
             _storeContext = storeContext;
-            _cacheManager = cacheManager;
             _productAttributeParser = productAttributeParser;
 
             _mediaSettings = mediaSettings;
