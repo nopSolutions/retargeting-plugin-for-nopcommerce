@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Nop.Core;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Directory;
@@ -7,13 +8,13 @@ using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Payments;
 using Nop.Core.Domain.Shipping;
 using Nop.Core.Domain.Tax;
+using Nop.Core.Events;
 using Nop.Services.Affiliates;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Customers;
 using Nop.Services.Directory;
 using Nop.Services.Discounts;
-using Nop.Services.Events;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
 using Nop.Services.Messages;
@@ -127,20 +128,20 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             _pluginService = pluginService;
         }
 
-        public override PlaceOrderResult PlaceOrder(ProcessPaymentRequest processPaymentRequest)
+        public override async Task<PlaceOrderResult> PlaceOrderAsync(ProcessPaymentRequest processPaymentRequest)
         {
-            var placeOrderResult = base.PlaceOrder(processPaymentRequest);
+            var placeOrderResult = await base.PlaceOrderAsync(processPaymentRequest);
 
             if (placeOrderResult.Success)
             {
-                var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
+                var pluginDescriptor = await _pluginService.GetPluginDescriptorBySystemNameAsync<IPlugin>(RetargetingDefaults.SystemName);
                 if (pluginDescriptor == null)
-                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
+                    throw new Exception(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
                 if (!(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
-                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
+                    throw new Exception(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
-                plugin.SendOrder(placeOrderResult.PlacedOrder.Id);
+                await plugin.SendOrder(placeOrderResult.PlacedOrder.Id);
             }
 
             return placeOrderResult;

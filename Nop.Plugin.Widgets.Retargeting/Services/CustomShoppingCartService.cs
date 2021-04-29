@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
@@ -10,14 +11,13 @@ using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Orders;
+using Nop.Core.Events;
 using Nop.Core.Http.Extensions;
 using Nop.Data;
-using Nop.Services.Caching;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Customers;
 using Nop.Services.Directory;
-using Nop.Services.Events;
 using Nop.Services.Helpers;
 using Nop.Services.Localization;
 using Nop.Services.Orders;
@@ -47,7 +47,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             CatalogSettings catalogSettings,
             IAclService aclService,
             IActionContextAccessor actionContextAccessor,
-            ICacheKeyService cacheKeyService,
             ICheckoutAttributeParser checkoutAttributeParser,
             ICheckoutAttributeService checkoutAttributeService,
             ICurrencyService currencyService,
@@ -73,8 +72,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             IWorkContext workContext,
             OrderSettings orderSettings,
             ShoppingCartSettings shoppingCartSettings) :
-            base(catalogSettings, aclService, actionContextAccessor, cacheKeyService, checkoutAttributeParser, checkoutAttributeService, currencyService,
-              customerService, dateRangeService, dateTimeHelper, eventPublisher, genericAttributeService, localizationService, permissionService,
+            base(catalogSettings, aclService, actionContextAccessor, checkoutAttributeParser, checkoutAttributeService, currencyService,
+              customerService, dateRangeService, dateTimeHelper, genericAttributeService, localizationService, permissionService,
               priceCalculationService, priceFormatter, productAttributeParser, productAttributeService, productService, sciRepository, shippingService,
               staticCacheManager, storeContext, storeMappingService, urlHelperFactory, urlRecordService, workContext, orderSettings, shoppingCartSettings)
         {
@@ -87,11 +86,11 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             _storeContext = storeContext;
         }
 
-        public override IList<string> AddToCart(Customer customer, Product product, ShoppingCartType shoppingCartType, int storeId,
+        public override async Task<IList<string>> AddToCartAsync(Customer customer, Product product, ShoppingCartType shoppingCartType, int storeId,
             string attributesXml = null, decimal customerEnteredPrice = 0, DateTime? rentalStartDate = null,
             DateTime? rentalEndDate = null, int quantity = 1, bool automaticallyAddRequiredProductsIfEnabled = true)
         {
-            var warnings = base.AddToCart(customer, product, shoppingCartType, storeId, attributesXml,
+            var warnings = await base.AddToCartAsync(customer, product, shoppingCartType, storeId, attributesXml,
                 customerEnteredPrice, rentalStartDate, rentalEndDate, quantity, automaticallyAddRequiredProductsIfEnabled);
 
             if (_httpContextAccessor.HttpContext?.Session != null)
@@ -102,16 +101,13 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                 {
                     if (warnings.Count == 0)
                     {
-                        var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
-                        if (pluginDescriptor == null)
-                            throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
-
-                        if (!(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
-                            throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
+                        var pluginDescriptor = await _pluginService.GetPluginDescriptorBySystemNameAsync<IPlugin>("Widgets.Retargeting");
+                        if (pluginDescriptor == null || pluginDescriptor.Instance<IPlugin>() is not RetargetingPlugin plugin)
+                            throw new Exception(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
                         object variation = false;
 
-                        var stock = plugin.IsProductCombinationInStock(product, attributesXml, out var variationCode, out var variationDetails);
+                        var (stock, variationCode, variationDetails) = await plugin.IsProductCombinationInStockAsync(product, attributesXml);
                         if (!string.IsNullOrEmpty(variationCode))
                             variation = new
                             {
@@ -136,28 +132,28 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             return warnings;
         }
 
-        public override void DeleteShoppingCartItem(ShoppingCartItem shoppingCartItem, bool resetCheckoutData = true,
+        public override async Task DeleteShoppingCartItemAsync(ShoppingCartItem shoppingCartItem, bool resetCheckoutData = true,
             bool ensureOnlyActiveCheckoutAttributes = false)
         {
-            base.DeleteShoppingCartItem(shoppingCartItem, resetCheckoutData, ensureOnlyActiveCheckoutAttributes);
+            await base.DeleteShoppingCartItemAsync(shoppingCartItem, resetCheckoutData, ensureOnlyActiveCheckoutAttributes);
 
             var shoppingMigrationInProcess = _httpContextAccessor.HttpContext?.Session.Get<bool>("ra_shoppingMigrationInProcess");
 
             if (shoppingMigrationInProcess.HasValue && !shoppingMigrationInProcess.Value && shoppingCartItem.ShoppingCartType == ShoppingCartType.ShoppingCart)
             {
-                var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
-                if (pluginDescriptor == null || !(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
-                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
+                var pluginDescriptor = await _pluginService.GetPluginDescriptorBySystemNameAsync<IPlugin>("Widgets.Retargeting");
+                if (pluginDescriptor == null || pluginDescriptor.Instance<IPlugin>() is not RetargetingPlugin plugin)
+                    throw new Exception(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
                 var shoppingCartItemsToDelete = _httpContextAccessor.HttpContext?.Session.Get<Dictionary<int, Dictionary<string, string>>>("ra_shoppingCartItemsToDelete");
                 if (shoppingCartItemsToDelete == null)
                     shoppingCartItemsToDelete = new Dictionary<int, Dictionary<string, string>>();
 
                 object variation = false;
-                var product = _productService.GetProductById(shoppingCartItem.ProductId);
+                var product = await _productService.GetProductByIdAsync(shoppingCartItem.ProductId);
 
-                var stock = plugin.IsProductCombinationInStock(product, shoppingCartItem.AttributesXml,
-                    out var variationCode, out var variationDetails);
+                var (stock, variationCode, variationDetails) = await plugin.IsProductCombinationInStockAsync(product, shoppingCartItem.AttributesXml);
+
                 if (!string.IsNullOrEmpty(variationCode))
                     variation = new
                     {
@@ -166,13 +162,12 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                         details = variationDetails
                     };
 
-                var order = _orderService.SearchOrders(storeId: _storeContext.CurrentStore.Id,
-                    customerId: _workContext.CurrentCustomer.Id, pageSize: 1)
+                var order = (await _orderService.SearchOrdersAsync(storeId: (await _storeContext.GetCurrentStoreAsync()).Id, customerId: (await _workContext.GetCurrentCustomerAsync()).Id, pageSize: 1))
                     .FirstOrDefault();
 
                 if (!(order != null && 
                     order.CreatedOnUtc > DateTime.UtcNow.AddMinutes(-1) &&
-                    _orderService.GetOrderItems(order.Id).Any(item => item.ProductId == shoppingCartItem.ProductId)))
+                    (await _orderService.GetOrderItemsAsync(order.Id)).Any(item => item.ProductId == shoppingCartItem.ProductId)))
                 {
                     if (!shoppingCartItemsToDelete.ContainsKey(shoppingCartItem.Id))
                         shoppingCartItemsToDelete.Add(shoppingCartItem.Id, new Dictionary<string, string>
@@ -187,11 +182,11 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             }
         }
 
-        public override void MigrateShoppingCart(Customer fromCustomer, Customer toCustomer, bool includeCouponCodes)
+        public override async Task MigrateShoppingCartAsync(Customer fromCustomer, Customer toCustomer, bool includeCouponCodes)
         {
             _httpContextAccessor.HttpContext?.Session?.Set("ra_shoppingMigrationInProcess", true);
 
-            base.MigrateShoppingCart(fromCustomer, toCustomer, includeCouponCodes);
+            await base.MigrateShoppingCartAsync(fromCustomer, toCustomer, includeCouponCodes);
 
             _httpContextAccessor.HttpContext?.Session?.Set("ra_shoppingMigrationInProcess", false);
         }

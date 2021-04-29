@@ -1,39 +1,39 @@
 ﻿@model Nop.Plugin.Widgets.Retargeting.Models.ConfigurationModel
 
-<div class="panel-group">
-        <div class="panel panel-default">
-            <div class="panel-body">
-                <p>
-                    @T("Plugins.Widgets.Retargeting.SubscribeRetargeting")
-                </p>
-                <div class="form-group">
-                    <div class="col-md-3">
-                        <nop-override-store-checkbox asp-for="MerchantEmail_OverrideForStore" asp-input="MerchantEmail" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
-                        <nop-label asp-for="MerchantEmail" />
-                    </div>
-                    <div class="col-md-9">
-                        <nop-editor asp-for="MerchantEmail" />
-                        <span asp-validation-for="MerchantEmail"></span>
-                    </div>
+<div class="card-body">
+    <div class="card card-default">
+        <div class="card-body">
+            <p>
+                @T("Plugins.Widgets.Retargeting.SubscribeRetargeting")
+            </p>
+            <div class="form-group row">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="MerchantEmail_OverrideForStore" asp-input="MerchantEmail" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="MerchantEmail" />
                 </div>
-                <div class="form-group">
-                    <div class="col-md-9 col-md-offset-3">
-                        @*<input type="submit" name="subscribe" class="btn btn-primary" value="@T("Plugins.Widgets.Retargeting.Subscribe")" />*@
-                        <input type="submit" name="subscribe" class="btn bg-blue" value="@T("Plugins.Widgets.Retargeting.Subscribe")" />
-                    </div>
+                <div class="col-md-9">
+                    <nop-editor asp-for="MerchantEmail" />
+                    <span asp-validation-for="MerchantEmail"></span>
+                </div>
+            </div>
+            <div class="form-group row">
+                <div class="col-md-9 offset-md-3">
+                    @*<input type="submit" name="subscribe" class="btn btn-primary" value="@T("Plugins.Widgets.Retargeting.Subscribe")" />*@
+                    <button type="submit" name="subscribe" class="btn btn-primary">@T("Plugins.Widgets.Retargeting.Subscribe")</button>
                 </div>
             </div>
         </div>
-    <div class="panel panel-default">
-        <div class="panel-body">
+    </div>
 
+    <div class="card card-default">
+        <div class="card-body">
             <p>
                 <em>@T("Plugins.Widgets.Retargeting.CustomizationNote")</em>
             </p>
             <p>
                 <em>@T("Plugins.Widgets.Retargeting.DiscountTypeNote")</em>
             </p>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="TrackingApiKey_OverrideForStore" asp-input="TrackingApiKey" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="TrackingApiKey" />
@@ -43,7 +43,7 @@
                     <span asp-validation-for="TrackingApiKey"></span>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="RestApiKey_OverrideForStore" asp-input="RestApiKey" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="RestApiKey" />
@@ -53,7 +53,7 @@
                     <span asp-validation-for="RestApiKey"></span>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="UseHttpPostInsteadOfAjaxInAddToCart_OverrideForStore" asp-input="UseHttpPostInsteadOfAjaxInAddToCart" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="UseHttpPostInsteadOfAjaxInAddToCart" />
@@ -63,7 +63,7 @@
                     <span asp-validation-for="UseHttpPostInsteadOfAjaxInAddToCart"></span>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="ProductBoxSelector_OverrideForStore" asp-input="ProductBoxSelector" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="ProductBoxSelector" />
@@ -73,7 +73,7 @@
                     <span asp-validation-for="ProductBoxSelector"></span>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="AddToCartCatalogButtonSelector_OverrideForStore" asp-input="AddToCartCatalogButtonSelector" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="AddToCartCatalogButtonSelector" />
@@ -83,7 +83,7 @@
                     <span asp-validation-for="AddToCartCatalogButtonSelector"></span>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="AddToCartButtonDetailsPrefix_OverrideForStore" asp-input="AddToCartButtonIdDetailsPrefix" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="AddToCartButtonIdDetailsPrefix" />
@@ -93,7 +93,7 @@
                     <span asp-validation-for="AddToCartButtonIdDetailsPrefix"></span>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="AddToWishlistCatalogButtonSelector_OverrideForStore" asp-input="AddToWishlistCatalogButtonSelector" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="AddToWishlistCatalogButtonSelector" />
@@ -103,7 +103,7 @@
                     <span asp-validation-for="AddToWishlistCatalogButtonSelector"></span>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="AddToWishlistButtonIdDetailsPrefix_OverrideForStore" asp-input="AddToWishlistButtonIdDetailsPrefix" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="AddToWishlistButtonIdDetailsPrefix" />
@@ -113,7 +113,7 @@
                     <span asp-validation-for="AddToWishlistButtonIdDetailsPrefix"></span>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="PriceLabelSelector_OverrideForStore" asp-input="ProductPriceLabelDetailsSelector" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="ProductPriceLabelDetailsSelector" />
@@ -123,7 +123,7 @@
                     <span asp-validation-for="ProductPriceLabelDetailsSelector"></span>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="ProductMainPictureIdDetailsPrefix_OverrideForStore" asp-input="ProductMainPictureIdDetailsPrefix" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="ProductMainPictureIdDetailsPrefix" />
@@ -133,7 +133,7 @@
                     <span asp-validation-for="ProductMainPictureIdDetailsPrefix"></span>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="HelpTopicSystemNames_OverrideForStore" asp-input="HelpTopicSystemNames" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="HelpTopicSystemNames" />
@@ -143,7 +143,7 @@
                     <span asp-validation-for="HelpTopicSystemNames"></span>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="ProductReviewAddedResultSelector_OverrideForStore" asp-input="ProductReviewAddedResultSelector" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="ProductReviewAddedResultSelector" />
@@ -153,7 +153,7 @@
                     <span asp-validation-for="ProductReviewAddedResultSelector"></span>
                 </div>
             </div>
-                <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="RecommendationHomePage_OverrideForStore" asp-input="RecommendationHomePage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="RecommendationHomePage" />
@@ -163,7 +163,7 @@
                     <span asp-validation-for="RecommendationHomePage"></span>
                 </div>
             </div>
-                <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="RecommendationCategoryPage_OverrideForStore" asp-input="RecommendationCategoryPage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="RecommendationCategoryPage" />
@@ -173,7 +173,7 @@
                     <span asp-validation-for="RecommendationCategoryPage"></span>
                 </div>
             </div>
-                <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="RecommendationProductPage_OverrideForStore" asp-input="RecommendationProductPage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="RecommendationProductPage" />
@@ -183,7 +183,7 @@
                     <span asp-validation-for="RecommendationProductPage"></span>
                 </div>
             </div>
-                <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="RecommendationCheckoutPage_OverrideForStore" asp-input="RecommendationCheckoutPage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="RecommendationCheckoutPage" />
@@ -193,7 +193,7 @@
                     <span asp-validation-for="RecommendationCheckoutPage"></span>
                 </div>
             </div>
-                <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="RecommendationThankYouPage_OverrideForStore" asp-input="RecommendationThankYouPage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="RecommendationThankYouPage" />
@@ -203,7 +203,7 @@
                     <span asp-validation-for="RecommendationThankYouPage"></span>
                 </div>
             </div>
-                <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="RecommendationSearchPage_OverrideForStore" asp-input="RecommendationSearchPage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="RecommendationSearchPage" />
@@ -213,7 +213,7 @@
                     <span asp-validation-for="RecommendationSearchPage"></span>
                 </div>
             </div>
-                <div class="form-group">
+            <div class="form-group row">
                 <div class="col-md-3">
                     <nop-override-store-checkbox asp-for="RecommendationPageNotFound_OverrideForStore" asp-input="RecommendationPageNotFound" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                     <nop-label asp-for="RecommendationPageNotFound" />
@@ -223,10 +223,10 @@
                     <span asp-validation-for="RecommendationPageNotFound"></span>
                 </div>
             </div>
-            <div class="form-group">
-                <div class="col-md-9 col-md-offset-3">
-                    <input type="submit" name="save" class="btn bg-blue" value="@T("Admin.Common.Save")" />
-                    <button type="submit" name="reset-settings" id="reset-settings" class="btn bg-aqua pull-right">
+            <div class="form-group row">
+                <div class="col-md-9 offset-md-3">
+                    <button type="submit" name="save" class="btn btn-primary">@T("Admin.Common.Save")</button>
+                    <button type="submit" name="reset-settings" id="reset-settings" class="btn btn-info">
                         @T("Plugins.Widgets.Retargeting.ResetSettings")
                     </button>
                     <nop-action-confirmation asp-button-id="reset-settings" />

@@ -1,23 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.Encodings.Web;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nop.Core;
-using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Discounts;
 using Nop.Core.Domain.Messages;
 using Nop.Core.Domain.Orders;
-using Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache;
 using Nop.Plugin.Widgets.Retargeting.Models;
-using Nop.Services.Caching;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Configuration;
-using Nop.Services.Customers;
 using Nop.Services.Discounts;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
@@ -25,6 +22,7 @@ using Nop.Services.Media;
 using Nop.Services.Messages;
 using Nop.Services.Orders;
 using Nop.Services.Plugins;
+using Nop.Services.Security;
 using Nop.Services.Seo;
 using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;
@@ -36,88 +34,248 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
     [AutoValidateAntiforgeryToken]
     public class WidgetsRetargetingController : BasePluginController
     {
-        private readonly EmailAccountSettings _emailAccountSettings;
-        private readonly ICacheKeyService _cacheKeyService;
+        #region Fields
+
+        private readonly IPermissionService _permissionService;
         private readonly ICategoryService _categoryService;
-        private readonly ICustomerService _customerService;
         private readonly IDiscountService _discountService;
         private readonly IEmailAccountService _emailAccountService;
-        private readonly IEmailSender _emailSender;
         private readonly IGenericAttributeService _genericAttributeService;
         private readonly ILocalizationService _localizationService;
-        private readonly ILogger _logger;
         private readonly IManufacturerService _manufacturerService;
         private readonly INotificationService _notificationService;
         private readonly IPictureService _pictureService;
         private readonly IPluginService _pluginService;
-        private readonly IProductAttributeParser _productAttributeParser;
         private readonly IProductAttributeService _productAttributeService;
         private readonly IProductService _productService;
         private readonly ISettingService _settingService;
         private readonly IShoppingCartService _shoppingCartService;
-        private readonly IStaticCacheManager _cacheManager;
-        private readonly IStoreContext _storeContext;
         private readonly IUrlRecordService _urlRecordService;
+
+        private readonly ILogger _logger;
+        private readonly IEmailSender _emailSender;
+        private readonly IStoreContext _storeContext;
         private readonly IWorkContext _workContext;
+        private readonly IProductAttributeParser _productAttributeParser;
+
+        private readonly EmailAccountSettings _emailAccountSettings;
+
+        #endregion
+
+        #region Ctor
 
         public WidgetsRetargetingController(
-            EmailAccountSettings emailAccountSettings,
-            ICacheKeyService cacheKeyService,
+            IPermissionService permissionService,
             ICategoryService categoryService,
-            ICustomerService customerService,
             IDiscountService discountService,
             IEmailAccountService emailAccountService,
-            IEmailSender emailSender,
             IGenericAttributeService genericAttributeService,
             ILocalizationService localizationService,
-            ILogger logger,
             IManufacturerService manufacturerService,
             INotificationService notificationService,
             IPictureService pictureService,
             IPluginService pluginService,
-            IProductAttributeParser productAttributeParser,
             IProductAttributeService productAttributeService,
             IProductService productService,
             ISettingService settingService,
             IShoppingCartService shoppingCartService,
-            IStaticCacheManager cacheManager,
             IStoreContext storeContext,
             IUrlRecordService urlRecordService,
-            IWorkContext workContext
+
+            ILogger logger,
+            IEmailSender emailSender,
+            IWorkContext workContext,
+            IProductAttributeParser productAttributeParser,
+
+            EmailAccountSettings emailAccountSettings
             )
         {
-            _cacheKeyService = cacheKeyService;
-            _cacheManager = cacheManager;
+            _permissionService = permissionService;
             _categoryService = categoryService;
-            _customerService = customerService;
             _discountService = discountService;
             _emailAccountService = emailAccountService;
-            _emailAccountSettings = emailAccountSettings;
-            _emailSender = emailSender;
             _genericAttributeService = genericAttributeService;
             _localizationService = localizationService;
-            _logger = logger;
             _manufacturerService = manufacturerService;
             _notificationService = notificationService;
             _pictureService = pictureService;
             _pluginService = pluginService;
-            _productAttributeParser = productAttributeParser;
             _productAttributeService = productAttributeService;
             _productService = productService;
             _settingService = settingService;
             _shoppingCartService = shoppingCartService;
-            _storeContext = storeContext;
             _urlRecordService = urlRecordService;
+
+            _logger = logger;
+            _emailSender = emailSender;
             _workContext = workContext;
+            _storeContext = storeContext;
+            _productAttributeParser = productAttributeParser;
+
+            _emailAccountSettings = emailAccountSettings;
         }
+
+        #endregion
+
+        #region Utilities
+
+        /// <summary>
+        /// Sends an email
+        /// </summary>
+        /// <param name="email">Email</param>
+        /// <param name="subscribe">If subscribed</param>
+        /// <returns>A task that represents the asynchronous operation</returns>
+        private async Task SendEmailAsync(string email, bool subscribe)
+        {
+            //try to get an email account
+            var emailAccount = await _emailAccountService.GetEmailAccountByIdAsync(_emailAccountSettings.DefaultEmailAccountId)
+                ?? throw new NopException("Email account could not be loaded");
+
+            var subject = subscribe ? "New subscription" : "New unsubscription";
+            var body = subscribe
+                ? "nopCommerce user just left the email to receive an information about special offers from Retargeting."
+                : "nopCommerce user has canceled subscription to receive Retargeting news.";
+
+            //send email
+            await _emailSender.SendEmailAsync(emailAccount: emailAccount,
+                subject: subject, body: body,
+                fromAddress: email, fromName: RetargetingDefaults.UserAgent,
+                toAddress: RetargetingDefaults.SubscriptionEmail, toName: null);
+        }
+
+        /// <summary>
+        /// Gets a product image url
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <returns>Product image url</returns>
+        private async Task<string> GetProductImageUrlAsync(Product product)
+        {
+            var pictures = await _pictureService.GetPicturesByProductIdAsync(product.Id);
+            var defaultPicture = pictures.FirstOrDefault();
+
+            return await _pictureService.GetPictureUrlAsync(defaultPicture.Id);
+        }
+
+        /// <summary>
+        /// Parses product attributes
+        /// </summary>
+        /// <param name="product">Product</param>
+        /// <param name="form">Form</param>
+        /// <returns>Attributes xml</returns>
+        private async Task<string> ParseProductAttributesAsync(Product product, IFormCollection form)
+        {
+            var attributesXml = "";
+
+            var productAttributes = await _productAttributeService.GetProductAttributeMappingsByProductIdAsync(product.Id);
+            foreach (var attribute in productAttributes)
+            {
+                var controlId = $"{NopCatalogDefaults.ProductAttributePrefix}{attribute.Id}";
+                switch (attribute.AttributeControlType)
+                {
+                    case AttributeControlType.DropdownList:
+                    case AttributeControlType.RadioList:
+                    case AttributeControlType.ColorSquares:
+                    case AttributeControlType.ImageSquares:
+                        {
+                            var ctrlAttributes = form[controlId];
+                            if (!string.IsNullOrEmpty(ctrlAttributes))
+                            {
+                                var selectedAttributeId = int.Parse(ctrlAttributes);
+                                if (selectedAttributeId > 0)
+                                    attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
+                                        attribute, selectedAttributeId.ToString());
+                            }
+                        }
+                        break;
+                    case AttributeControlType.Checkboxes:
+                        {
+                            var ctrlAttributes = form[controlId].ToString();
+                            if (!string.IsNullOrEmpty(ctrlAttributes))
+                            {
+                                foreach (var item in ctrlAttributes.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    var selectedAttributeId = int.Parse(item);
+                                    if (selectedAttributeId > 0)
+                                        attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
+                                            attribute, selectedAttributeId.ToString());
+                                }
+                            }
+                        }
+                        break;
+                    case AttributeControlType.ReadonlyCheckboxes:
+                        {
+                            //load read-only (already server-side selected) values
+                            var attributeValues = await _productAttributeService.GetProductAttributeValuesAsync(attribute.Id);
+                            foreach (var selectedAttributeId in attributeValues
+                                .Where(v => v.IsPreSelected)
+                                .Select(v => v.Id)
+                                .ToList())
+                            {
+                                attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
+                                    attribute, selectedAttributeId.ToString());
+                            }
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            //validate conditional attributes (if specified)
+            foreach (var attribute in productAttributes)
+            {
+                var conditionMet = await _productAttributeParser.IsConditionMetAsync(attribute, attributesXml);
+                if (conditionMet.HasValue && !conditionMet.Value)
+                {
+                    attributesXml = _productAttributeParser.RemoveProductAttribute(attributesXml, attribute);
+                }
+            }
+
+            return attributesXml;
+        }
+
+        /// <summary>
+        /// Subscribe to Retargeting news
+        /// </summary>
+        /// <param name="email">Email address</param>
+        /// <returns>True if successfully subscribed/unsubscribed, otherwise false</returns>
+        private async Task<bool> SubscribeToRetargetingAsync(string newEmail, string oldEmail)
+        {
+            try
+            {
+                //unsubscribe previous email
+                if (!string.IsNullOrEmpty(oldEmail))
+                    await SendEmailAsync(oldEmail, false);
+
+                //subscribe new email
+                if (!string.IsNullOrEmpty(newEmail))
+                    await SendEmailAsync(newEmail, true);
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                //log errors
+                var errorMessage = $"Retargeting subscription error: {exception.Message}.";
+                await _logger.ErrorAsync(errorMessage, exception, (await _workContext.GetCurrentCustomerAsync()));
+
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region Methods
 
         [AuthorizeAdmin]
         [Area(AreaNames.Admin)]
-        public IActionResult Configure()
+        public async Task<IActionResult> Configure()
         {
+            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManagePlugins))
+                return AccessDeniedView();
+
             //load settings for a chosen store scope
-            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
-            var retargetingSettings = _settingService.LoadSetting<RetargetingSettings>(storeScope);
+            var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
+            var retargetingSettings = await _settingService.LoadSettingAsync<RetargetingSettings>(storeScope);
 
             var model = new ConfigurationModel
             {
@@ -143,8 +301,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 RecommendationSearchPage = retargetingSettings.RecommendationSearchPage,
                 RecommendationPageNotFound = retargetingSettings.RecommendationPageNotFound,
 
-                HideConfigurationBlock = _genericAttributeService.GetAttribute<bool>(_workContext.CurrentCustomer, RetargetingDefaults.HideConfigurationBlock),
-                HidePreconfigureBlock = _genericAttributeService.GetAttribute<bool>(_workContext.CurrentCustomer, RetargetingDefaults.HidePreconfigureBlock),
+                HideConfigurationBlock = await _genericAttributeService.GetAttributeAsync<bool>(await _workContext.GetCurrentCustomerAsync(), RetargetingDefaults.HideConfigurationBlock),
+                HidePreconfigureBlock = await _genericAttributeService.GetAttributeAsync<bool>(await _workContext.GetCurrentCustomerAsync(), RetargetingDefaults.HidePreconfigureBlock),
 
                 MerchantEmail = retargetingSettings.MerchantEmail,
 
@@ -153,29 +311,29 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
             if (storeScope > 0)
             {
-                model.TrackingApiKey_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.TrackingApiKey, storeScope);
-                model.RestApiKey_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RestApiKey, storeScope);
-                model.UseHttpPostInsteadOfAjaxInAddToCart_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.UseHttpPostInsteadOfAjaxInAddToCart, storeScope);
-                model.AddToCartButtonDetailsPrefix_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.AddToCartButtonIdDetailsPrefix, storeScope);
-                model.PriceLabelSelector_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.ProductPriceLabelDetailsSelector, storeScope);
-                model.AddToWishlistButtonIdDetailsPrefix_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.AddToWishlistButtonIdDetailsPrefix, storeScope);
-                model.HelpTopicSystemNames_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.HelpTopicSystemNames, storeScope);
-                model.AddToWishlistCatalogButtonSelector_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.AddToWishlistCatalogButtonSelector, storeScope);
-                model.ProductReviewAddedResultSelector_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.ProductReviewAddedResultSelector, storeScope);
-                model.AddToCartCatalogButtonSelector_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.AddToCartCatalogButtonSelector, storeScope);
-                model.ProductBoxSelector_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.ProductBoxSelector, storeScope);
-                model.ProductMainPictureIdDetailsPrefix_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.ProductMainPictureIdDetailsPrefix, storeScope);
+                model.TrackingApiKey_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.TrackingApiKey, storeScope);
+                model.RestApiKey_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.RestApiKey, storeScope);
+                model.UseHttpPostInsteadOfAjaxInAddToCart_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.UseHttpPostInsteadOfAjaxInAddToCart, storeScope);
+                model.AddToCartButtonDetailsPrefix_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.AddToCartButtonIdDetailsPrefix, storeScope);
+                model.PriceLabelSelector_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.ProductPriceLabelDetailsSelector, storeScope);
+                model.AddToWishlistButtonIdDetailsPrefix_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.AddToWishlistButtonIdDetailsPrefix, storeScope);
+                model.HelpTopicSystemNames_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.HelpTopicSystemNames, storeScope);
+                model.AddToWishlistCatalogButtonSelector_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.AddToWishlistCatalogButtonSelector, storeScope);
+                model.ProductReviewAddedResultSelector_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.ProductReviewAddedResultSelector, storeScope);
+                model.AddToCartCatalogButtonSelector_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.AddToCartCatalogButtonSelector, storeScope);
+                model.ProductBoxSelector_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.ProductBoxSelector, storeScope);
+                model.ProductMainPictureIdDetailsPrefix_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.ProductMainPictureIdDetailsPrefix, storeScope);
 
-                model.RecommendationHomePage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationHomePage, storeScope);
-                model.RecommendationCategoryPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationCategoryPage, storeScope);
-                model.RecommendationProductPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationProductPage, storeScope);
-                model.RecommendationCheckoutPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationCheckoutPage, storeScope);
-                model.RecommendationThankYouPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationThankYouPage, storeScope);
-                model.RecommendationOutOfStockPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationOutOfStockPage, storeScope);
-                model.RecommendationSearchPage_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationSearchPage, storeScope);
-                model.RecommendationPageNotFound_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.RecommendationPageNotFound, storeScope);
+                model.RecommendationHomePage_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.RecommendationHomePage, storeScope);
+                model.RecommendationCategoryPage_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.RecommendationCategoryPage, storeScope);
+                model.RecommendationProductPage_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.RecommendationProductPage, storeScope);
+                model.RecommendationCheckoutPage_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.RecommendationCheckoutPage, storeScope);
+                model.RecommendationThankYouPage_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.RecommendationThankYouPage, storeScope);
+                model.RecommendationOutOfStockPage_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.RecommendationOutOfStockPage, storeScope);
+                model.RecommendationSearchPage_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.RecommendationSearchPage, storeScope);
+                model.RecommendationPageNotFound_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.RecommendationPageNotFound, storeScope);
 
-                model.MerchantEmail_OverrideForStore = _settingService.SettingExists(retargetingSettings, x => x.MerchantEmail, storeScope);
+                model.MerchantEmail_OverrideForStore = await _settingService.SettingExistsAsync(retargetingSettings, x => x.MerchantEmail, storeScope);
             }
 
             return View("~/Plugins/Widgets.Retargeting/Views/Configure.cshtml", model);
@@ -185,14 +343,18 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         [AuthorizeAdmin]
         [Area(AreaNames.Admin)]
         [FormValueRequired("save")]
-        public IActionResult Configure(ConfigurationModel model)
+        [AutoValidateAntiforgeryToken]
+        public async Task<IActionResult> Configure(ConfigurationModel model)
         {
+            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManagePlugins))
+                return AccessDeniedView();
+
             if (!ModelState.IsValid)
-                return Configure();
+                return await Configure();
 
             //load settings for a chosen store scope
-            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
-            var retargetingSettings = _settingService.LoadSetting<RetargetingSettings>(storeScope);
+            var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
+            var retargetingSettings = await _settingService.LoadSettingAsync<RetargetingSettings>(storeScope);
 
             //save settings
             retargetingSettings.TrackingApiKey = model.TrackingApiKey;
@@ -222,77 +384,83 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             /* We do not clear cache after each setting update.
              * This behavior can increase performance because cached settings will not be cleared 
              * and loaded from database after each update */
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.TrackingApiKey, model.TrackingApiKey_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RestApiKey, model.RestApiKey_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.UseHttpPostInsteadOfAjaxInAddToCart, model.UseHttpPostInsteadOfAjaxInAddToCart_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToCartButtonIdDetailsPrefix, model.AddToCartButtonDetailsPrefix_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductPriceLabelDetailsSelector, model.PriceLabelSelector_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToWishlistButtonIdDetailsPrefix, model.AddToWishlistButtonIdDetailsPrefix_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.HelpTopicSystemNames, model.HelpTopicSystemNames_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToWishlistCatalogButtonSelector, model.AddToWishlistCatalogButtonSelector_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductReviewAddedResultSelector, model.ProductReviewAddedResultSelector_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToCartCatalogButtonSelector, model.AddToCartCatalogButtonSelector_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductBoxSelector, model.ProductBoxSelector_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductMainPictureIdDetailsPrefix, model.ProductMainPictureIdDetailsPrefix_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.TrackingApiKey, model.TrackingApiKey_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.RestApiKey, model.RestApiKey_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.UseHttpPostInsteadOfAjaxInAddToCart, model.UseHttpPostInsteadOfAjaxInAddToCart_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.AddToCartButtonIdDetailsPrefix, model.AddToCartButtonDetailsPrefix_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.ProductPriceLabelDetailsSelector, model.PriceLabelSelector_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.AddToWishlistButtonIdDetailsPrefix, model.AddToWishlistButtonIdDetailsPrefix_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.HelpTopicSystemNames, model.HelpTopicSystemNames_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.AddToWishlistCatalogButtonSelector, model.AddToWishlistCatalogButtonSelector_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.ProductReviewAddedResultSelector, model.ProductReviewAddedResultSelector_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.AddToCartCatalogButtonSelector, model.AddToCartCatalogButtonSelector_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.ProductBoxSelector, model.ProductBoxSelector_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.ProductMainPictureIdDetailsPrefix, model.ProductMainPictureIdDetailsPrefix_OverrideForStore, storeScope, false);
 
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationHomePage, model.RecommendationHomePage_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationCategoryPage, model.RecommendationCategoryPage_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationProductPage, model.RecommendationProductPage_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationCheckoutPage, model.RecommendationCheckoutPage_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationThankYouPage, model.RecommendationThankYouPage_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationOutOfStockPage, model.RecommendationOutOfStockPage_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationSearchPage, model.RecommendationSearchPage_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.RecommendationPageNotFound, model.RecommendationPageNotFound_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.RecommendationHomePage, model.RecommendationHomePage_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.RecommendationCategoryPage, model.RecommendationCategoryPage_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.RecommendationProductPage, model.RecommendationProductPage_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.RecommendationCheckoutPage, model.RecommendationCheckoutPage_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.RecommendationThankYouPage, model.RecommendationThankYouPage_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.RecommendationOutOfStockPage, model.RecommendationOutOfStockPage_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.RecommendationSearchPage, model.RecommendationSearchPage_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.RecommendationPageNotFound, model.RecommendationPageNotFound_OverrideForStore, storeScope, false);
 
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.MerchantEmail, model.MerchantEmail_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.MerchantEmail, model.MerchantEmail_OverrideForStore, storeScope, false);
 
             //now clear settings cache
-            _settingService.ClearCache();
+            await _settingService.ClearCacheAsync();
 
-            _notificationService.SuccessNotification(_localizationService.GetResource("Admin.Plugins.Saved"));
+            _notificationService.SuccessNotification(await _localizationService.GetResourceAsync("Admin.Plugins.Saved"));
 
-            return Configure();
+            return await Configure();
         }
 
         [Area(AreaNames.Admin)]
         [HttpPost, ActionName("Configure")]
         [FormValueRequired("preconfigure")]
-        public IActionResult Preconfigure()
+        public async Task<IActionResult> Preconfigure()
         {
-            var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
+            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManagePlugins))
+                return AccessDeniedView();
+
+            var pluginDescriptor = await _pluginService.GetPluginDescriptorBySystemNameAsync<IPlugin>(RetargetingDefaults.SystemName);
             if (pluginDescriptor != null)
             {
                 if (pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin)
                 {
                     try
                     {
-                        plugin.Preconfigure();
-                        var message = _localizationService.GetResource("Plugins.Widgets.Retargeting.PreconfigureCompleted");
+                        await plugin.PreconfigureAsync();
+                        var message = await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.PreconfigureCompleted");
                         _notificationService.SuccessNotification(message);
-                        _logger.Information(message);
+                        await _logger.InformationAsync(message);
                     }
                     catch (Exception exception)
                     {
-                        var message = _localizationService.GetResource("Plugins.Widgets.Retargeting.PreconfigureError") + exception;
+                        var message = await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.PreconfigureError") + exception;
                         _notificationService.ErrorNotification(message);
-                        _logger.Error(message);
+                        await _logger.ErrorAsync(message);
                     }
 
-                    return Configure();
+                    return await Configure();
                 }
             }
 
-            throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
+            throw new Exception(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
         }
 
         [Area(AreaNames.Admin)]
         [HttpPost, ActionName("Configure")]
         [FormValueRequired("reset-settings")]
-        public IActionResult ResetSettings()
+        public async Task<IActionResult> ResetSettings()
         {
+            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManagePlugins))
+                return AccessDeniedView();
+
             //load settings for a chosen store scope
-            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
-            var retargetingSettings = _settingService.LoadSetting<RetargetingSettings>(storeScope);
+            var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
+            var retargetingSettings = await _settingService.LoadSettingAsync<RetargetingSettings>(storeScope);
 
             //save settings
             retargetingSettings.UseHttpPostInsteadOfAjaxInAddToCart = false;
@@ -309,53 +477,52 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             /* We do not clear cache after each setting update.
              * This behavior can increase performance because cached settings will not be cleared 
              * and loaded from database after each update */
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.UseHttpPostInsteadOfAjaxInAddToCart, false, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToCartButtonIdDetailsPrefix, false, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductPriceLabelDetailsSelector, false, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToWishlistButtonIdDetailsPrefix, false, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.HelpTopicSystemNames, false, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToWishlistCatalogButtonSelector, false, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductReviewAddedResultSelector, false, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.AddToCartCatalogButtonSelector, false, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductBoxSelector, false, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(retargetingSettings, x => x.ProductMainPictureIdDetailsPrefix, false, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.UseHttpPostInsteadOfAjaxInAddToCart, false, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.AddToCartButtonIdDetailsPrefix, false, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.ProductPriceLabelDetailsSelector, false, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.AddToWishlistButtonIdDetailsPrefix, false, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.HelpTopicSystemNames, false, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.AddToWishlistCatalogButtonSelector, false, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.ProductReviewAddedResultSelector, false, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.AddToCartCatalogButtonSelector, false, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.ProductBoxSelector, false, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(retargetingSettings, x => x.ProductMainPictureIdDetailsPrefix, false, storeScope, false);
 
             //now clear settings cache
-            _settingService.ClearCache();
+            await _settingService.ClearCacheAsync();
 
-            _notificationService.SuccessNotification(_localizationService.GetResource("Plugins.Widgets.Retargeting.SettingsReset"));
+            _notificationService.SuccessNotification(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.SettingsReset"));
 
-            return Configure();
+            return await Configure();
         }
 
-        public IActionResult ProductStockFeed()
+        public async Task<IActionResult> ProductStockFeed()
         {
-            var productFeed = new object();
+            var fileName = string.Format("feed_{0}_{1}.csv", DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"), CommonHelper.GenerateRandomDigitCode(4));
+            var result = string.Empty;
+
             try
             {
-                var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
-                if (pluginDescriptor != null)
-                {
-                    if (pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin)
-                        productFeed = plugin.GenerateProductStockFeed();
-                }
+                var pluginDescriptor = await _pluginService.GetPluginDescriptorBySystemNameAsync<IPlugin>("Widgets.Retargeting");
+                if (pluginDescriptor == null || pluginDescriptor.Instance<IPlugin>() is not RetargetingPlugin plugin)
+                    throw new Exception(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
-                throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
+                result = await plugin.ExportProductsToCsvAsync();
             }
             catch (Exception exc)
             {
                 _notificationService.ErrorNotification(exc.Message);
-                _logger.Error(exc.Message, exc);
+                await _logger.ErrorAsync(exc.Message, exc);
             }
 
-            return Json(productFeed);
+            return File(Encoding.UTF8.GetBytes(result), MimeTypes.TextCsv, fileName);
         }
 
-        public IActionResult GenerateDiscounts(string key, string value, int type, int count)
+        public async Task<IActionResult> GenerateDiscounts(string key, string value, int type, int count)
         {
             var discountCodes = new List<string>();
 
-            var retargetingSettings = _settingService.LoadSetting<RetargetingSettings>(_storeContext.CurrentStore.Id);
+            var retargetingSettings = await _settingService.LoadSettingAsync<RetargetingSettings>((await _storeContext.GetCurrentStoreAsync()).Id);
             if (retargetingSettings.RestApiKey.Equals(key))
             {
                 decimal.TryParse(value, out var discountValue);
@@ -393,7 +560,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                                 discount.DiscountPercentage = 100;
                                 break;
                         }
-                        _discountService.InsertDiscount(discount);
+                        await _discountService.InsertDiscountAsync(discount);
                         discountCodes.Add(discount.CouponCode);
                     }
                 }
@@ -402,86 +569,46 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             return Json(discountCodes.ToArray());
         }
 
-        [NonAction]
-        private string GetProductImageUrl(Product product)
-        {
-            var pictures = _pictureService.GetPicturesByProductId(product.Id);
-            var defaultPicture = pictures.FirstOrDefault();
-
-            return _pictureService.GetPictureUrl(defaultPicture.Id);
-        }
-
         [HttpPost]
-        public IActionResult GetProductInfo(int productId)
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> GetProductInfo(int productId)
         {
             var productInfo = new Dictionary<string, object>();
 
             try
             {
-                var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
-                if (pluginDescriptor == null)
-                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
+                var pluginDescriptor = await _pluginService.GetPluginDescriptorBySystemNameAsync<IPlugin>("Widgets.Retargeting");
+                if (pluginDescriptor == null || pluginDescriptor.Instance<IPlugin>() is not RetargetingPlugin plugin)
+                    throw new Exception(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
-                if (!(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
-                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
-
-                var product = _productService.GetProductById(productId);
+                var product = await _productService.GetProductByIdAsync(productId);
                 if (product == null)
                     return new NullJsonResult();
 
                 #region Product details
 
                 productInfo.Add("id", product.Id);
-                productInfo.Add("name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(product, x => x.Name)) ?? "");
-                productInfo.Add("url", string.Format("{0}{1}", _storeContext.CurrentStore.Url, _urlRecordService.GetSeName(product)));
-                productInfo.Add("img", GetProductImageUrl(product));
+                productInfo.Add("name", JavaScriptEncoder.Default.Encode(await _localizationService.GetLocalizedAsync(product, x => x.Name)) ?? "");
+                productInfo.Add("url", string.Format("{0}{1}", (await _storeContext.GetCurrentStoreAsync()).Url, await _urlRecordService.GetSeNameAsync(product)));
+                productInfo.Add("img", await GetProductImageUrlAsync(product));
 
-                plugin.GetProductPrice(product, out var price, out var priceWithDiscount);
-
-                if (price == 0)
-                    price = 1;
-
-                productInfo.Add("price", price.ToString("0.00", CultureInfo.InvariantCulture));
-                productInfo.Add("promo", priceWithDiscount.ToString("0.00", CultureInfo.InvariantCulture));
+                var (price, priceWithDiscount) = await plugin.GetProductPrice(product);
+                productInfo.Add("price", price);
+                productInfo.Add("promo", priceWithDiscount);
 
                 #endregion
 
                 #region Categories
 
-                var customerRoleIds = _customerService.GetCustomerRoleIds(_workContext.CurrentCustomer);
-                var categoriesCacheKey =
-                    _cacheKeyService.PrepareKeyForShortTermCache(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
-                        product,
-                        _workContext.WorkingLanguage,
-                        string.Join(",", customerRoleIds),
-                        _storeContext.CurrentStore);
-
-                var categories = _cacheManager.Get(categoriesCacheKey, () =>
-                {
-                    return _categoryService.GetProductCategoriesByProductId(product.Id)
-                        .Select(x => _categoryService.GetCategoryById(x.CategoryId))
-                        .ToList();
-                });
+                var categories = await (await _categoryService.GetProductCategoriesByProductIdAsync(product.Id))
+                    .SelectAwait(async x => await _categoryService.GetCategoryByIdAsync(x.CategoryId))
+                    .ToListAsync();
 
                 if (categories.Count == 0)
-                {
                     if (product.ParentGroupedProductId > 0)
-                    {
-                        categoriesCacheKey =
-                            _cacheKeyService.PrepareKeyForShortTermCache(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
-                                product.ParentGroupedProductId,
-                                _workContext.WorkingLanguage,
-                                string.Join(",", customerRoleIds),
-                                _storeContext.CurrentStore);
-
-                        categories = _cacheManager.Get(categoriesCacheKey, () =>
-                        {
-                            return _categoryService.GetProductCategoriesByProductId(product.ParentGroupedProductId)
-                                .Select(x => _categoryService.GetCategoryById(x.CategoryId))
-                                .ToList();
-                        });
-                    }
-                }
+                        categories = await (await _categoryService.GetProductCategoriesByProductIdAsync(product.ParentGroupedProductId))
+                            .SelectAwait(async x => await _categoryService.GetCategoryByIdAsync(x.CategoryId))
+                            .ToListAsync();
 
                 //product must have at least one category
                 if (categories.Count == 0)
@@ -492,8 +619,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 {
                     var categoryObj = new Dictionary<string, object>
                     {
-                        {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(category, x => x.Name) ?? "")},
-                        {"id", category}
+                        {"name", JavaScriptEncoder.Default.Encode(await _localizationService.GetLocalizedAsync(category, x => x.Name))},
+                        {"id", category.Id}
                     };
 
                     var breadcrumb = new List<object>();
@@ -501,13 +628,13 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                     {
                         categoryObj.Add("parent", category.ParentCategoryId);
 
-                        var parentCategory = _categoryService.GetCategoryById(category.ParentCategoryId);
+                        var parentCategory = await _categoryService.GetCategoryByIdAsync(category.ParentCategoryId);
                         if (parentCategory != null)
                         {
                             var bc1 = new Dictionary<string, object>
                             {
                                 {"id", parentCategory.Id},
-                                {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(parentCategory, x => x.Name) ?? "")}
+                                {"name", JavaScriptEncoder.Default.Encode(await _localizationService.GetLocalizedAsync(parentCategory, x => x.Name))}
                             };
 
                             if (parentCategory.ParentCategoryId > 0)
@@ -517,15 +644,15 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
                             breadcrumb.Add(bc1);
 
-                            var parentParentCategory = _categoryService.GetCategoryById(parentCategory.ParentCategoryId);
+                            var parentParentCategory = await _categoryService.GetCategoryByIdAsync(parentCategory.ParentCategoryId);
                             if (parentParentCategory != null)
                             {
                                 breadcrumb.Add(new Dictionary<string, object>
-                                {
-                                    {"id", parentParentCategory.Id},
-                                    {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(parentParentCategory, x => x.Name) ?? "")},
-                                    {"parent", false}
-                                });
+                            {
+                                {"id", parentParentCategory.Id},
+                                {"name", JavaScriptEncoder.Default.Encode(await _localizationService.GetLocalizedAsync(parentParentCategory, x => x.Name))},
+                                {"parent", false}
+                            });
                             }
                         }
                     }
@@ -544,26 +671,14 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 #region Manufacturer
 
                 var manufacturer = new Dictionary<string, object>();
-
-                var manufacturersCacheKey =
-                    _cacheKeyService.PrepareKeyForShortTermCache (ModelCacheEventConsumer.PRODUCT_MANUFACTURERS_MODEL_KEY,
-                        productId,
-                        _workContext.WorkingLanguage,
-                        string.Join(",", customerRoleIds),
-                        _storeContext.CurrentStore);
-
-                var manufacturers = _cacheManager.Get(manufacturersCacheKey, () =>
-                {
-                    return _manufacturerService.GetProductManufacturersByProductId(productId)
-                        .Select(x => _manufacturerService.GetManufacturerById(x.ManufacturerId))
-                        .ToList();
-                });
+                var manufacturers = await (await _manufacturerService.GetProductManufacturersByProductIdAsync(productId))
+                        .SelectAwait(async x => await _manufacturerService.GetManufacturerByIdAsync(x.ManufacturerId))
+                        .ToListAsync();
 
                 if (manufacturers.Count > 0)
                 {
                     manufacturer.Add("id", manufacturers[0].Id);
-                    manufacturer.Add("name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(manufacturers[0], m => m.Name) ?? ""));
-
+                    manufacturer.Add("name", JavaScriptEncoder.Default.Encode(await _localizationService.GetLocalizedAsync(manufacturers[0], x => x.Name)));
                     productInfo.Add("brand", manufacturer);
                 }
                 else
@@ -578,11 +693,11 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 var inventory = new Dictionary<string, object>();
                 var attributes = new Dictionary<string, object>();
 
-                var allAttributeCombinationsXml = _productAttributeParser.GenerateAllCombinations(product, true);
+                var allAttributeCombinationsXml = await _productAttributeParser.GenerateAllCombinationsAsync(product, true);
                 foreach (var attributeCombinationXml in allAttributeCombinationsXml)
                 {
                     var warnings = new List<string>();
-                    warnings.AddRange(_shoppingCartService.GetShoppingCartItemAttributeWarnings(_workContext.CurrentCustomer,
+                    warnings.AddRange(await _shoppingCartService.GetShoppingCartItemAttributeWarningsAsync((await _workContext.GetCurrentCustomerAsync()),
                         ShoppingCartType.ShoppingCart, product, 1, attributeCombinationXml, true));
                     if (warnings.Count != 0)
                         continue;
@@ -598,7 +713,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                                 if (!product.DisplayStockAvailability)
                                     inStock = true;
 
-                                var stockQuantity = _productService.GetTotalStockQuantity(product);
+                                var stockQuantity = await _productService.GetTotalStockQuantityAsync(product);
                                 if (stockQuantity > 0)
                                     inStock = true;
                                 else
@@ -627,7 +742,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                                 if (!product.DisplayStockAvailability)
                                     inStock = true;
 
-                                var combination = _productAttributeParser.FindProductAttributeCombination(product, attributeCombinationXml);
+                                var combination = await _productAttributeParser.FindProductAttributeCombinationAsync(product, attributeCombinationXml);
                                 if (combination != null)
                                 {
                                     //combination exists
@@ -653,7 +768,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                             break;
                     }
 
-                    var varCode = plugin.GetCombinationCode(attributeCombinationXml);
+                    var varCode = await plugin.GetCombinationCodeAsync(attributeCombinationXml);
                     if (!attributes.ContainsKey(varCode))
                         attributes.Add(varCode, inStock);
                 }
@@ -675,7 +790,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             catch (Exception exc)
             {
                 _notificationService.ErrorNotification(exc.Message);
-                _logger.Error(exc.Message, exc);
+                await _logger.ErrorAsync(exc.Message, exc);
             }
 
             return Json(new
@@ -685,19 +800,20 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         }
 
         [HttpPost]
-        public IActionResult IsProductCombinationInStock(int productId, IFormCollection form)
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> IsProductCombinationInStock(int productId, IFormCollection form)
         {
-            var product = _productService.GetProductById(productId);
+            var product = await _productService.GetProductByIdAsync(productId);
             if (product == null)
                 return new NullJsonResult();
 
-            var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
-            if (pluginDescriptor == null || !(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
-                throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
+            var pluginDescriptor = await _pluginService.GetPluginDescriptorBySystemNameAsync<IPlugin>("Widgets.Retargeting");
+            if (pluginDescriptor == null || pluginDescriptor.Instance<IPlugin>() is not RetargetingPlugin plugin)
+                throw new Exception(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
-            var attributeXml = ParseProductAttributes(product, form);
+            var attributeXml = await ParseProductAttributesAsync(product, form);
 
-            var productIsInStock = plugin.IsProductCombinationInStock(product, attributeXml, out var variationCode, out var variationDetails);
+            var (productIsInStock, variationCode, variationDetails) = await plugin.IsProductCombinationInStockAsync(product, attributeXml);
 
             return Json(new
             {
@@ -707,159 +823,35 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             });
         }
 
-        private string ParseProductAttributes(Product product, IFormCollection form)
-        {
-            var attributesXml = "";
-
-            #region Product attributes
-
-            var productAttributes = _productAttributeService.GetProductAttributeMappingsByProductId(product.Id);
-            foreach (var attribute in productAttributes)
-            {
-                var controlId = string.Format("product_attribute_{0}", attribute.Id);
-                switch (attribute.AttributeControlType)
-                {
-                    case AttributeControlType.DropdownList:
-                    case AttributeControlType.RadioList:
-                    case AttributeControlType.ColorSquares:
-                    case AttributeControlType.ImageSquares:
-                        {
-                            var ctrlAttributes = form[controlId];
-                            if (!string.IsNullOrEmpty(ctrlAttributes))
-                            {
-                                var selectedAttributeId = int.Parse(ctrlAttributes);
-                                if (selectedAttributeId > 0)
-                                    attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
-                                        attribute, selectedAttributeId.ToString());
-                            }
-                        }
-                        break;
-                    case AttributeControlType.Checkboxes:
-                        {
-                            var ctrlAttributes = form[controlId].ToString();
-                            if (!string.IsNullOrEmpty(ctrlAttributes))
-                            {
-                                foreach (var item in ctrlAttributes.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-                                {
-                                    var selectedAttributeId = int.Parse(item);
-                                    if (selectedAttributeId > 0)
-                                        attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
-                                            attribute, selectedAttributeId.ToString());
-                                }
-                            }
-                        }
-                        break;
-                    case AttributeControlType.ReadonlyCheckboxes:
-                        {
-                            //load read-only (already server-side selected) values
-                            var attributeValues = _productAttributeService.GetProductAttributeValues(attribute.Id);
-                            foreach (var selectedAttributeId in attributeValues
-                                .Where(v => v.IsPreSelected)
-                                .Select(v => v.Id)
-                                .ToList())
-                            {
-                                attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
-                                    attribute, selectedAttributeId.ToString());
-                            }
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
-            //validate conditional attributes (if specified)
-            foreach (var attribute in productAttributes)
-            {
-                var conditionMet = _productAttributeParser.IsConditionMet(attribute, attributesXml);
-                if (conditionMet.HasValue && !conditionMet.Value)
-                {
-                    attributesXml = _productAttributeParser.RemoveProductAttribute(attributesXml, attribute);
-                }
-            }
-
-            #endregion
-
-            return attributesXml;
-        }
-
-        /// <summary>
-        /// Subscribe to Retargeting news
-        /// </summary>
-        /// <param name="email">Email address</param>
-        /// <returns>True if successfully subscribed/unsubscribed, otherwise false</returns>
-        public bool SubscribeToRetargeting(string newEmail, string oldEmail)
-        {
-            try
-            {
-                //unsubscribe previous email
-                if (!string.IsNullOrEmpty(oldEmail))
-                    SendEmail(oldEmail, false);
-
-                //subscribe new email
-                if (!string.IsNullOrEmpty(newEmail))
-                    SendEmail(newEmail, true);
-
-                return true;
-            }
-            catch (Exception exception)
-            {
-                //log errors
-                var errorMessage = $"Retargeting subscription error: {exception.Message}.";
-                _logger.Error(errorMessage, exception, _workContext.CurrentCustomer);
-
-                return false;
-            }
-        }
-
-
         [Area(AreaNames.Admin)]
         [HttpPost, ActionName("Configure")]
         [FormValueRequired("subscribe")]
-        public IActionResult Subscribe(ConfigurationModel model)
+        public async Task<IActionResult> SubscribeAsync(ConfigurationModel model)
         {
-            //if (!_permissionService.Authorize(StandardPermissionProvider.ManagePaymentMethods))
-            //    return AccessDeniedView();
-
             //load settings
-            var settings = _settingService.LoadSetting<RetargetingSettings>();
+            var settings = await _settingService.LoadSettingAsync<RetargetingSettings>();
             if (settings.MerchantEmail == model.MerchantEmail)
-                return Configure();
+                return await Configure();
 
             //try to subscribe/unsubscribe
-            var successfullySubscribed = SubscribeToRetargeting(model.MerchantEmail, settings.MerchantEmail);
+            var successfullySubscribed = await SubscribeToRetargetingAsync(model.MerchantEmail, settings.MerchantEmail);
             if (successfullySubscribed)
             {
                 //save settings and display success notification
                 settings.MerchantEmail = model.MerchantEmail;
-                _settingService.SaveSetting(settings);
+                await _settingService.SaveSettingAsync(settings);
 
                 var message = !string.IsNullOrEmpty(model.MerchantEmail)
-                    ? _localizationService.GetResource("Plugins.Widgets.Retargeting.Subscribe.Success")
-                    : _localizationService.GetResource("Plugins.Widgets.Retargeting.Unsubscribe.Success");
+                    ? await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.Subscribe.Success")
+                    : await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.Unsubscribe.Success");
                 _notificationService.SuccessNotification(message);
             }
             else
-                _notificationService.ErrorNotification(_localizationService.GetResource("Plugins.Widgets.Retargeting.Subscribe.Error"));
+                _notificationService.ErrorNotification(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.Subscribe.Error"));
 
-            return Configure();
-        }
-
-        private void SendEmail(string email, bool subscribe)
-        {
-            //try to get an email account
-            var emailAccount = _emailAccountService.GetEmailAccountById(_emailAccountSettings.DefaultEmailAccountId)
-                ?? throw new NopException("Email account could not be loaded");
-
-            var subject = subscribe ? "New subscription" : "New unsubscription";
-            var body = subscribe
-                ? "nopCommerce user just left the email to receive an information about special offers from Retargeting."
-                : "nopCommerce user has canceled subscription to receive Retargeting news.";
-
-            //send email
-            _emailSender.SendEmail(emailAccount: emailAccount,
-                subject: subject, body: body,
-                fromAddress: email, fromName: RetargetingDefaults.UserAgent,
-                toAddress: RetargetingDefaults.SubscriptionEmail, toName: null);
+            return await Configure();
         }
     }
+
+    #endregion
 }

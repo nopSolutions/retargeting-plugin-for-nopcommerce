@@ -5,36 +5,48 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Routing;
+using Newtonsoft.Json;
 using Nop.Core;
+using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Media;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Tax;
+using Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache;
 using Nop.Services.Catalog;
 using Nop.Services.Cms;
 using Nop.Services.Common;
 using Nop.Services.Configuration;
+using Nop.Services.Customers;
 using Nop.Services.Directory;
 using Nop.Services.Discounts;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
+using Nop.Services.Media;
 using Nop.Services.Orders;
 using Nop.Services.Plugins;
 using Nop.Services.Security;
+using Nop.Services.Seo;
 using Nop.Services.Tax;
 using Nop.Web.Framework.Infrastructure;
 
 namespace Nop.Plugin.Widgets.Retargeting
 {
+    /// <summary>
+    /// PLugin
+    /// </summary>
     public class RetargetingPlugin : BasePlugin, IWidgetPlugin
     {
         #region Fields
 
         private readonly IAddressService _addressService;
-        private readonly ICurrencyService _currencyService;
         private readonly IDiscountService _discountService;
         private readonly ILocalizationService _localizationService;
-        private readonly ILogger _logger;
         private readonly IOrderService _orderService;
         private readonly IPermissionService _permissionService;
         private readonly IPriceCalculationService _priceCalculationService;
@@ -44,10 +56,20 @@ namespace Nop.Plugin.Widgets.Retargeting
         private readonly ISettingService _settingService;
         private readonly IShoppingCartService _shoppingCartService;
         private readonly IStateProvinceService _stateProvinceService;
-        private readonly IStoreContext _storeContext;
         private readonly ITaxService _taxService;
+        private readonly IUrlRecordService _urlRecordService;
+        private readonly IPictureService _pictureService;
+        private readonly ICategoryService _categoryService;
+        private readonly IManufacturerService _manufacturerService;
+
+        private readonly ILogger _logger;
+        private readonly IStoreContext _storeContext;
         private readonly IWebHelper _webHelper;
         private readonly IWorkContext _workContext;
+        private readonly IStaticCacheManager _staticCacheManager;
+        private readonly IUrlHelperFactory _urlHelperFactory;
+        private readonly IActionContextAccessor _actionContextAccessor;
+
         private readonly MediaSettings _mediaSettings;
         private readonly OrderSettings _orderSettings;
         private readonly ShoppingCartSettings _shoppingCartSettings;
@@ -58,10 +80,8 @@ namespace Nop.Plugin.Widgets.Retargeting
 
         public RetargetingPlugin(
             IAddressService addressService,
-            ICurrencyService currencyService,
             IDiscountService discountService,
             ILocalizationService localizationService,
-            ILogger logger,
             IOrderService orderService,
             IPermissionService permissionService,
             IPriceCalculationService priceCalculationService,
@@ -71,22 +91,28 @@ namespace Nop.Plugin.Widgets.Retargeting
             ISettingService settingService,
             IShoppingCartService shoppingCartService,
             IStateProvinceService stateProvinceService,
-            IStoreContext storeContext,
             ITaxService taxService,
+            IUrlRecordService urlRecordService,
+            IPictureService pictureService,
+            ICategoryService categoryService,
+            IManufacturerService manufacturerService,
+
+            ILogger logger,
+            IStoreContext storeContext,
             IWebHelper webHelper,
             IWorkContext workContext,
+            IStaticCacheManager staticCacheManager,
+            IUrlHelperFactory urlHelperFactory,
+            IActionContextAccessor actionContextAccessor,
+
             MediaSettings mediaSettings,
             OrderSettings orderSettings,
             ShoppingCartSettings shoppingCartSettings)
         {
             _addressService = addressService;
-            _currencyService = currencyService;
             _discountService = discountService;
             _localizationService = localizationService;
-            _logger = logger;
-            _mediaSettings = mediaSettings;
             _orderService = orderService;
-            _orderSettings = orderSettings;
             _permissionService = permissionService;
             _priceCalculationService = priceCalculationService;
             _productAttributeParser = productAttributeParser;
@@ -94,12 +120,67 @@ namespace Nop.Plugin.Widgets.Retargeting
             _productService = productService;
             _settingService = settingService;
             _shoppingCartService = shoppingCartService;
-            _shoppingCartSettings = shoppingCartSettings;
             _stateProvinceService = stateProvinceService;
-            _storeContext = storeContext;
             _taxService = taxService;
+            _urlRecordService = urlRecordService;
+            _pictureService = pictureService;
+            _categoryService = categoryService;
+            _manufacturerService = manufacturerService;
+
+            _logger = logger;
+            _storeContext = storeContext;
             _webHelper = webHelper;
             _workContext = workContext;
+            _staticCacheManager = staticCacheManager;
+            _urlHelperFactory = urlHelperFactory;
+            _actionContextAccessor = actionContextAccessor;
+
+            _mediaSettings = mediaSettings;
+            _orderSettings = orderSettings;
+            _shoppingCartSettings = shoppingCartSettings;
+        }
+
+        #endregion
+
+        #region Utilities
+
+        /// <summary>
+        /// Get the combination code
+        /// </summary>
+        /// <param name="attributeCombinationXml">Attribute combination Xml</param>
+        /// <returns></returns>
+        public async Task<string> GetCombinationCodeAsync(string attributeCombinationXml)
+        {
+            var result = "";
+
+            var attributes = await _productAttributeParser.ParseProductAttributeMappingsAsync(attributeCombinationXml);
+            for (var i = 0; i < attributes.Count; i++)
+            {
+                var attribute = attributes[i];
+                var valuesStr = _productAttributeParser.ParseValues(attributeCombinationXml, attribute.Id);
+
+                for (var j = 0; j < valuesStr.Count; j++)
+                {
+                    if (attribute.ShouldHaveValues() && !string.IsNullOrEmpty(valuesStr[j]))
+                    {
+                        result += valuesStr[j];
+                        if (i != attributes.Count - 1 || j != valuesStr.Count - 1)
+                            result += "-";
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Normalizes a string value
+        /// </summary>
+        /// <param name="stringValue">Normalized value</param>
+        /// <returns></returns>
+        public string NormalizeStringValue(string stringValue)
+        {
+            return stringValue.Trim().Replace(",", "&#44;").Replace("\"", "&#34;");
         }
 
         #endregion
@@ -109,10 +190,13 @@ namespace Nop.Plugin.Widgets.Retargeting
         /// <summary>
         /// Gets widget zones where this widget should be rendered
         /// </summary>
-        /// <returns>Widget zones</returns>
-        public IList<string> GetWidgetZones()
+        /// <returns>
+        /// A task that represents the asynchronous operation
+        /// The task result contains the widget zones
+        /// </returns>
+        public Task<IList<string>> GetWidgetZonesAsync()
         {
-            return new List<string>() { PublicWidgetZones.ContentBefore };
+            return Task.FromResult<IList<string>>(new List<string> { PublicWidgetZones.ContentBefore });
         }
 
         /// <summary>
@@ -136,7 +220,8 @@ namespace Nop.Plugin.Widgets.Retargeting
         /// <summary>
         /// Install plugin
         /// </summary>
-        public override void Install()
+        /// <returns>A task that represents the asynchronous operation</returns>
+        public override async Task InstallAsync()
         {
             //settings
             var settings = new RetargetingSettings()
@@ -162,10 +247,10 @@ namespace Nop.Plugin.Widgets.Retargeting
                 RecommendationSearchPage = false,
                 RecommendationPageNotFound = false
             };
-            _settingService.SaveSetting(settings);
+            await _settingService.SaveSettingAsync(settings);
 
             //locales
-            _localizationService.AddPluginLocaleResource(new Dictionary<string, string>
+            await _localizationService.AddLocaleResourceAsync(new Dictionary<string, string>
             { 
                 ["Plugins.Widgets.Retargeting.Configuration"] = "Configuration",
                 ["Plugins.Widgets.Retargeting.PreconfigureSystem"] = "Preconfigure system",
@@ -191,7 +276,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                 ["Plugins.Widgets.Retargeting.AddToWishlistCatalogButtonSelector"] = "Add to wishlist button selector (catalog)",
                 ["Plugins.Widgets.Retargeting.AddToWishlistCatalogButtonSelector.Hint"] = "Add to wishlist button selector (catalog).",
                 ["Plugins.Widgets.Retargeting.AddToWishlistButtonIdDetailsPrefix"] = "Add to wishlist button id prefix (product details)",
-                ["Plugins.Widgets.Retargeting.AddToWishlistButtonIdDetailsPrefix.Hint"] = "Add to wishlist button id  (product details).",
+                ["Plugins.Widgets.Retargeting.AddToWishlistButtonIdDetailsPrefix.Hint"] = "Add to wishlist button id (product details).",
                 ["Plugins.Widgets.Retargeting.ProductPriceLabelDetailsSelector"] = "Price label selector (product details)",
                 ["Plugins.Widgets.Retargeting.ProductPriceLabelDetailsSelector.Hint"] = "Price label selector (product details).",
                 ["Plugins.Widgets.Retargeting.ProductMainPictureIdDetailsPrefix"] = "Product main picture id prefix",
@@ -206,7 +291,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                 ["Plugins.Widgets.Retargeting.Subscribe"] = "Subscribe",
                 ["Plugins.Widgets.Retargeting.MerchantEmail"] = "Email",
                 ["Plugins.Widgets.Retargeting.MerchantEmail.Hint"] = "Enter your email to subscribe to Retargeting news.",
-                ["Plugins.Widgets.Retargeting.Subscribe.Error"] = "An error has occurred] = details in the log",
+                ["Plugins.Widgets.Retargeting.Subscribe.Error"] = "An error has occurred. See details in the log",
                 ["Plugins.Widgets.Retargeting.Subscribe.Success"] = "You have subscribed to Retargeting news",
                 ["Plugins.Widgets.Retargeting.Unsubscribe.Success"] = "You have unsubscribed from Retargeting news",
                
@@ -228,41 +313,58 @@ namespace Nop.Plugin.Widgets.Retargeting
                 ["Plugins.Widgets.Retargeting.RecommendationPageNotFound.Hint"] = "To use Retargeting Recommendation Engine for Page Not Found."
             });
 
-            base.Install();
+            await base.InstallAsync();
         }
 
         /// <summary>
         /// Uninstall plugin
         /// </summary>
-        public override void Uninstall()
+        /// <returns>A task that represents the asynchronous operation</returns>
+        public override async Task UninstallAsync()
         {
             //settings
-            _settingService.DeleteSetting<RetargetingSettings>();
+            await _settingService.DeleteSettingAsync<RetargetingSettings>();
 
             //locales
-            _localizationService.DeletePluginLocaleResources("Plugins.Widgets.Retargeting.Configuration");
+            await _localizationService.DeleteLocaleResourcesAsync("Plugins.Widgets.Retargeting.Configuration");
 
-            base.Uninstall();
+            await base.UninstallAsync();
         }
 
-        public void Preconfigure()
+        /// <summary>
+        /// Preconfigure plugin
+        /// </summary>
+        /// <returns>A task that represents the asynchronous operation</returns>
+        public async Task PreconfigureAsync()
         {
             _shoppingCartSettings.DisplayCartAfterAddingProduct = false;
             _shoppingCartSettings.DisplayWishlistAfterAddingProduct = false;
-            _settingService.SaveSetting(_shoppingCartSettings);
+            await _settingService.SaveSettingAsync(_shoppingCartSettings);
 
             _orderSettings.DisableOrderCompletedPage = false;
-            _settingService.SaveSetting(_orderSettings);
+            await _settingService.SaveSettingAsync(_orderSettings);
 
             _mediaSettings.DefaultPictureZoomEnabled = true;
-            _settingService.SaveSetting(_mediaSettings);
+            await _settingService.SaveSettingAsync(_mediaSettings);
         }
 
-        public List<Dictionary<string, object>> GenerateProductStockFeed()
+        /// <summary>
+        /// Export products to CSV
+        /// </summary>
+        /// <returns>Result in CSV format</returns>
+        public async Task<string> ExportProductsToCsvAsync()
         {
-            var productFeed = new List<Dictionary<string, object>>();
+            const string separator = ",";
+            var sb = new StringBuilder();
 
-            var products = _productService.SearchProducts(visibleIndividuallyOnly: true);
+            //get URL helper
+            var urlHelper = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext);
+
+            //headers
+            sb.Append("product id,product name,product url,image url,stock,price,sale price,brand,category,extra data");
+            sb.Append(Environment.NewLine);
+
+            var products = await _productService.SearchProductsAsync(visibleIndividuallyOnly: true);
             foreach (var product in products)
             {
                 var productsToProcess = new List<Product>();
@@ -277,139 +379,220 @@ namespace Nop.Plugin.Widgets.Retargeting
                     case ProductType.GroupedProduct:
                         {
                             //grouped products could have several child products
-                            var associatedProducts = _productService.GetAssociatedProducts(product.Id);
-                            productsToProcess.AddRange(associatedProducts);
+                            var associatedProducts = await _productService.GetAssociatedProductsAsync(product.Id);
+
+                            if (product.VisibleIndividually)
+                                productsToProcess.AddRange(associatedProducts);
                         }
                         break;
                     default:
                         continue;
                 }
 
-                foreach (var productToProcess in productsToProcess)
+                foreach (var currentProduct in productsToProcess)
                 {
-                    var productInfo = new Dictionary<string, object>
+                    //product id
+                    sb.Append(currentProduct.Id);
+                    sb.Append(separator);
+
+                    //product name
+                    sb.Append(NormalizeStringValue(currentProduct.Name));
+                    sb.Append(separator);
+
+                    //product url
+                    sb.Append(urlHelper.RouteUrl("Product", new { SeName = await _urlRecordService.GetSeNameAsync(currentProduct) }, _webHelper.GetCurrentRequestProtocol()));
+                    sb.Append(separator);
+
+                    //image url
+                    var productPicturesCacheKey = _staticCacheManager.PrepareKeyForDefaultCache(ModelCacheEventConsumer.ProductPicturesModelKey, currentProduct.Id, _webHelper.IsCurrentConnectionSecured() ? Uri.UriSchemeHttps : Uri.UriSchemeHttp, (await _storeContext.GetCurrentStoreAsync()).Id);
+
+                    var cachedProductPictures = await _staticCacheManager.GetAsync(productPicturesCacheKey, async () =>
                     {
-                        {"id", productToProcess.Id.ToString()},
-                        {
-                            "product_availability",
-                            product.AvailableEndDateTimeUtc?.ToString("yy-MM-dd hh:mm:ss")
-                        }
-                    };
+                        return await _pictureService.GetPicturesByProductIdAsync(currentProduct.Id);
+                    });
 
-                    GetProductPrice(product, out var price, out var priceWithDiscount);
+                    var imageUrl = cachedProductPictures.FirstOrDefault() != null ? (await _pictureService.GetPictureUrlAsync(cachedProductPictures.FirstOrDefault())).Url : "";
 
-                    productInfo.Add("price", price.ToString(new CultureInfo("en-US", false).NumberFormat));
-                    productInfo.Add("promo", priceWithDiscount.ToString(new CultureInfo("en-US", false).NumberFormat));
-                    productInfo.Add("promo_price_end_date", null);
+                    sb.Append(imageUrl);
+                    sb.Append(separator);
 
-                    var inventory = new Dictionary<string, object>();
-                    var attributes = new Dictionary<string, object>();
+                    //stock
+                    sb.Append(currentProduct.StockQuantity);
+                    sb.Append(separator);
 
-                    var allAttributesXml = _productAttributeParser.GenerateAllCombinations(product, true);
+                    //price
+                    var (price, priceWithDiscount) = await GetProductPrice(currentProduct);
+
+                    sb.Append(price);
+                    sb.Append(separator);
+
+                    //sale price
+                    sb.Append(priceWithDiscount);
+                    sb.Append(separator);
+
+                    //brand
+                    var manufacturerName = "";
+                    var productManufacturers = await _manufacturerService.GetProductManufacturersByProductIdAsync(currentProduct.Id);
+                    var defaultProductManufacturer = productManufacturers.FirstOrDefault();
+
+                    if (defaultProductManufacturer != null)
+                        manufacturerName = NormalizeStringValue((await _manufacturerService.GetManufacturerByIdAsync(defaultProductManufacturer.ManufacturerId)).Name);
+
+                    sb.Append(manufacturerName);
+                    sb.Append(separator);
+
+                    //category
+                    var categoryName = "Default category";
+                    var productCategories = await _categoryService.GetProductCategoriesByProductIdAsync(currentProduct.Id);
+                    var defaultProductCategory = productCategories.FirstOrDefault();
+
+                    if (defaultProductCategory != null)
+                        categoryName = NormalizeStringValue((await _categoryService.GetCategoryByIdAsync(defaultProductCategory.CategoryId)).Name);
+
+                    sb.Append(categoryName);
+                    sb.Append(separator);
+
+                    //extra data
+                    //categories (breadcrumb)
+                    var categoryString = string.Empty;
+                    if (defaultProductCategory != null)
+                    {
+                        var categoryBreadcrumb = await (await _categoryService.GetCategoryBreadCrumbAsync(await _categoryService.GetCategoryByIdAsync(defaultProductCategory.CategoryId))).SelectAwait(async catBr => NormalizeStringValue(await _localizationService.GetLocalizedAsync(catBr, x => x.Name))).ToListAsync();
+
+                        categoryString = string.Join("|", categoryBreadcrumb);
+                    } else {
+                        categoryString = categoryName;
+                    }
+
+                    //attributes
+                    var variations = new List<Dictionary<string, object>>();
+                    var attributeCodes = new List<string>();
+
+                    var allAttributesXml = await _productAttributeParser.GenerateAllCombinationsAsync(currentProduct, true);
                     foreach (var attributesXml in allAttributesXml)
                     {
                         var warnings = new List<string>();
-                        warnings.AddRange(_shoppingCartService.GetShoppingCartItemAttributeWarnings(_workContext.CurrentCustomer,
-                            ShoppingCartType.ShoppingCart, product, 1, attributesXml, true));
+                        warnings.AddRange(await _shoppingCartService.GetShoppingCartItemAttributeWarningsAsync(await _workContext.GetCurrentCustomerAsync(),
+                            ShoppingCartType.ShoppingCart, currentProduct, 1, attributesXml, true));
                         if (warnings.Count != 0)
                             continue;
 
-                        var inStock = true;
-                        var existingCombination = _productAttributeParser.FindProductAttributeCombination(product, attributesXml);
+                        var existingCombination = await _productAttributeParser.FindProductAttributeCombinationAsync(currentProduct, attributesXml);
                         if (existingCombination != null)
-                            inStock = existingCombination.StockQuantity > 0;
+                        {
+                            var varCode = await GetCombinationCodeAsync(attributesXml);
+                            if (!attributeCodes.Contains(varCode))
+                            {
+                                attributeCodes.Add(varCode);
 
-                        var varCode = GetCombinationCode(attributesXml);
-                        if (!attributes.ContainsKey(varCode))
-                            attributes.Add(varCode, inStock);
+                                var combinationPrice = existingCombination.OverriddenPrice != null ? existingCombination.OverriddenPrice.Value.ToString(new CultureInfo("en-US", false).NumberFormat) : price;
+                                var combinationPriceWithDiscount = existingCombination.OverriddenPrice != null ? existingCombination.OverriddenPrice.Value.ToString(new CultureInfo("en-US", false).NumberFormat) : priceWithDiscount;
+
+                                variations.Add(new Dictionary<string, object> {
+                                    {"\"code\"", $"\"{varCode}\"" },
+                                    {"\"price\"", $"\"{combinationPrice}\"" },
+                                    {"\"sale price\"", $"\"{combinationPriceWithDiscount}\"" },
+                                    {"\"stock\"", existingCombination.StockQuantity},
+                                    {"\"margin\"", null},
+                                    {"\"in_supplier_stock\"", existingCombination.StockQuantity > 0 }
+                                });
+                            }
+                        }
                     }
 
-                    var variation = new Dictionary<string, object>
+                    //media gallery
+                    var imageUrls = new List<string>();
+                    foreach (var picture in cachedProductPictures)
+                        imageUrls.Add($"\"{await _pictureService.GetPictureUrlAsync(picture)}\"".Replace("/", "\\/"));
+
+                    //extra data object
+                    var extraData = new Dictionary<string, object>
                     {
-                        {"variation", attributes}
+                        {"\"margin\"", null},
+                        {"\"categories\"", $"\"{categoryString}\"" },
+                        {"\"variations\"",  variations},
+                        {"\"media_gallery\"", imageUrls},
+                        {"\"in_supplier_stock\"", currentProduct.StockQuantity > 0 }
                     };
 
-                    if (attributes.Count > 0)
-                    {
-                        inventory.Add("variations", true);
-                        inventory.Add("stock", variation);
-                    }
-                    else
-                    {
-                        inventory.Add("variations", false);
-                        inventory.Add("stock", product.StockQuantity > 0);
-                    }
+                    sb.Append($"\"{Regex.Unescape(JsonConvert.SerializeObject(extraData))}\"");
+                    sb.Append(separator);
 
-                    productInfo.Add("inventory", inventory);
-                    productInfo.Add("user_groups", false);
-
-                    productFeed.Add(productInfo);
+                    sb.Append(Environment.NewLine);
                 }
             }
-
-            return productFeed;
+            return sb.ToString();
         }
 
-        public void GetProductPrice(Product product, out decimal priceBase, out decimal priceWithDiscountBase)
+        /// <summary>
+        /// Gets product price
+        /// </summary>
+        /// <param name="product"></param>
+        /// <returns>Product price and price with discount</returns>
+        public async Task<(string price, string priceWithDiscount)> GetProductPrice(Product product)
         {
-            priceBase = decimal.Zero;
-            priceWithDiscountBase = decimal.Zero;
+            var priceBase = decimal.Zero;
+            var priceWithDiscountBase = decimal.Zero;
 
-            if (_permissionService.Authorize(StandardPermissionProvider.DisplayPrices))
+            if (await _permissionService.AuthorizeAsync(StandardPermissionProvider.DisplayPrices))
             {
                 if (!product.CustomerEntersPrice)
                 {
                     if (!product.CallForPrice)
                     {
-                        priceBase = _taxService.GetProductPrice(product, product.OldPrice, out _);
-                        priceWithDiscountBase = _taxService.GetProductPrice(product, _priceCalculationService.GetFinalPrice(product, _workContext.CurrentCustomer, includeDiscounts: true), out _);
+                        var (minPossiblePriceWithoutDiscount, minPossiblePriceWithDiscount, _, _) = await _priceCalculationService.GetFinalPriceAsync(product, await _workContext.GetCurrentCustomerAsync());
 
-                        if (priceBase == 0)
+                        if (product.HasTierPrices)
                         {
-                            priceBase = priceWithDiscountBase;
-                            priceWithDiscountBase = 0;
+                            var (tierPriceMinPossiblePriceWithoutDiscount, tierPriceMinPossiblePriceWithDiscount, _, _) = await _priceCalculationService.GetFinalPriceAsync(product, await _workContext.GetCurrentCustomerAsync(), quantity: int.MaxValue);
+
+                            //calculate price for the maximum quantity if we have tier prices, and choose minimal
+                            minPossiblePriceWithoutDiscount = Math.Min(minPossiblePriceWithoutDiscount, tierPriceMinPossiblePriceWithoutDiscount);
+                            minPossiblePriceWithDiscount = Math.Min(minPossiblePriceWithDiscount, tierPriceMinPossiblePriceWithDiscount);
                         }
-                    }
-                }
-            }
-        }
 
-        public string GetCombinationCode(string attributeCombinationXml)
-        {
-            var result = "";
+                        var (finalPriceWithoutDiscountBase, _) = await _taxService.GetProductPriceAsync(product, minPossiblePriceWithoutDiscount);
+                        var (finalPriceWithDiscountBase, _) = await _taxService.GetProductPriceAsync(product, minPossiblePriceWithDiscount);
 
-            var attributes = _productAttributeParser.ParseProductAttributeMappings(attributeCombinationXml);
-            for (var i = 0; i < attributes.Count; i++)
-            {
-                var attribute = attributes[i];
-                var valuesStr = _productAttributeParser.ParseValues(attributeCombinationXml, attribute.Id);
-
-                for (var j = 0; j < valuesStr.Count; j++)
-                {
-                    if (attribute.ShouldHaveValues() && !string.IsNullOrEmpty(valuesStr[j]))
-                    {
-                        result += valuesStr[j];
-                        if (i != attributes.Count - 1 || j != valuesStr.Count - 1)
-                            result += "-";
+                        priceBase = finalPriceWithoutDiscountBase;
+                        priceWithDiscountBase = finalPriceWithDiscountBase;
                     }
                 }
             }
 
-            return result;
+            //Retargeting doesn't allow price = 0
+            if (priceBase == decimal.Zero)
+                priceBase = decimal.One;
+
+            //Retargeting doesn't allow price with discount = 0; in this case we should use a price without discount
+            if (priceWithDiscountBase == decimal.Zero)
+                priceWithDiscountBase = priceBase;
+
+            var price = priceBase.ToString(new CultureInfo("en-US", false).NumberFormat);
+            var priceWithDiscount = priceWithDiscountBase.ToString(new CultureInfo("en-US", false).NumberFormat);
+
+            return (price, priceWithDiscount);
         }
 
-        public void SendOrder(int orderId)
+        /// <summary>
+        /// Sends order
+        /// </summary>
+        /// <param name="orderId"></param>
+        /// <returns>A task that represents the asynchronous operation</returns>
+        public async Task SendOrder(int orderId)
         {
-            var retargetingSettings = _settingService.LoadSetting<RetargetingSettings>(_storeContext.CurrentStore.Id);
+            var retargetingSettings = await _settingService.LoadSettingAsync<RetargetingSettings>((await _storeContext.GetCurrentStoreAsync()).Id);
 
             if (!string.IsNullOrEmpty(retargetingSettings.RestApiKey))
             {
-                var order = _orderService.GetOrderById(orderId);
-                if (order != null && !order.Deleted && _workContext.CurrentCustomer.Id == order.CustomerId)
+                var order = await _orderService.GetOrderByIdAsync(orderId);
+                var currentCustomerId = (await _workContext.GetCurrentCustomerAsync()).Id;
+
+                if (order != null && !order.Deleted && currentCustomerId == order.CustomerId)
                 {
                     var sb = new StringBuilder();
 
-                    var billingAddress = _addressService.GetAddressById(order.BillingAddressId);
+                    var billingAddress = await _addressService.GetAddressByIdAsync(order.BillingAddressId);
 
                     sb.AppendFormat("api_key={0}&", retargetingSettings.RestApiKey);
                     sb.AppendFormat("0[order_no]={0}&", order.Id);
@@ -417,7 +600,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                     sb.AppendFormat("0[firstname]={0}&", WebUtility.UrlEncode(billingAddress?.FirstName));
                     sb.AppendFormat("0[email]={0}&", WebUtility.UrlEncode(billingAddress?.Email));
                     sb.AppendFormat("0[phone]={0}&", WebUtility.UrlEncode(billingAddress?.PhoneNumber));
-                    sb.AppendFormat("0[state]={0}&", WebUtility.UrlEncode(_stateProvinceService.GetStateProvinceByAddress(billingAddress)?.Name));
+                    sb.AppendFormat("0[state]={0}&", WebUtility.UrlEncode((await _stateProvinceService.GetStateProvinceByAddressAsync(billingAddress))?.Name));
                     sb.AppendFormat("0[city]={0}&", WebUtility.UrlEncode(billingAddress?.City));
                     sb.AppendFormat("0[adress]={0}&", WebUtility.UrlEncode($"{billingAddress?.Address1} {billingAddress?.Address2}"));
                     sb.AppendFormat("0[discount]={0}&", order.OrderDiscount.ToString("0.00", CultureInfo.InvariantCulture));
@@ -430,13 +613,11 @@ namespace Nop.Plugin.Widgets.Retargeting
 
                     //discount codes
                     var discountCode = "";
-                    var discountsWithCouponCodes =
-                            _discountService.GetAllDiscountUsageHistory(orderId: order.Id)
-                                .Where(x => !string.IsNullOrEmpty(_discountService.GetDiscountById(x.DiscountId)?.CouponCode))
-                                .ToList();
+                    var discountsWithCouponCodes =await (await _discountService.GetAllDiscountUsageHistoryAsync(orderId: order.Id)).WhereAwait(async x => !string.IsNullOrEmpty((await _discountService.GetDiscountByIdAsync(x.DiscountId))?.CouponCode)).ToListAsync();
+
                     for (var i = 0; i < discountsWithCouponCodes.Count; i++)
                     {
-                        discountCode += _discountService.GetDiscountById(discountsWithCouponCodes[i].DiscountId).CouponCode;
+                        discountCode += (await _discountService.GetDiscountByIdAsync(discountsWithCouponCodes[i].DiscountId)).CouponCode;
 
                         if (i < discountsWithCouponCodes.Count - 1)
                             discountCode += ",";
@@ -444,7 +625,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                     sb.AppendFormat("0[discount_code]={0}&", discountCode);
 
                     //order items
-                    var orderItems = _orderService.GetOrderItems(order.Id);
+                    var orderItems = await _orderService.GetOrderItemsAsync(order.Id);
                     for (var i = 0; i < orderItems.Count; i++)
                     {
                         sb.AppendFormat("1[{0}][id]={1}&", i, orderItems.ElementAt(i).Id);
@@ -453,7 +634,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                                                                                     ? orderItems.ElementAt(i).UnitPriceInclTax
                                                                                     : orderItems.ElementAt(i).UnitPriceExclTax);
                         var variationCode = "";
-                        var values = _productAttributeParser.ParseProductAttributeValues(orderItems.ElementAt(i).AttributesXml);
+                        var values = await _productAttributeParser.ParseProductAttributeValuesAsync(orderItems.ElementAt(i).AttributesXml);
                         for (var j = 0; j < values.Count; j++)
                         {
                             variationCode += values[j].Id;
@@ -468,28 +649,32 @@ namespace Nop.Plugin.Widgets.Retargeting
                     var response = restApiHelper.GetJson(_logger, "https://retargeting.biz/api/1.0/order/save.json", HttpMethod.Post, sb.ToString());
 
                     //order note
-                    _orderService.InsertOrderNote(new OrderNote
+                    await _orderService.InsertOrderNoteAsync(new OrderNote
                     {
                         OrderId = order.Id,
-                        Note = string.Format("Retargeting REST API. Saving the order data result: {0}", response),
+                        Note = string.Format("Retargeting REST API. Saving the order data result: {0}", response.Result),
                         DisplayToCustomer = false,
                         CreatedOnUtc = DateTime.UtcNow
                     });
-                    _orderService.UpdateOrder(order);
+                    await _orderService.UpdateOrderAsync(order);
                 }
             }
         }
 
-        public bool IsProductCombinationInStock(Product product, string attributeXml,
-            out string variationCode, out Dictionary<string, object> variationDetails)
+        /// <summary>
+        /// Indicates whether the product combination is in stock
+        /// </summary>
+        /// <param name="product"></param>
+        /// <param name="attributeXml"></param>
+        /// <returns>The value indicating whether the product combination is in stock, variation code, variation details</returns>
+        public async Task<(bool productIsInStock, string variationCode, Dictionary<string, object> variationDetails)> IsProductCombinationInStockAsync(Product product, string attributeXml)
         {
-            variationCode = "";
-            variationDetails = new Dictionary<string, object>();
+            var productIsInStock = false;
+            var variationCode = "";
+            var variationDetails = new Dictionary<string, object>();
 
             if (product == null)
-                return false;
-
-            var productIsInStock = false;
+                return (productIsInStock, variationCode, variationDetails);
 
             switch (product.ManageInventoryMethod)
             {
@@ -500,7 +685,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                         if (!product.DisplayStockAvailability)
                             productIsInStock = true;
 
-                        var stockQuantity = _productService.GetTotalStockQuantity(product);
+                        var stockQuantity = await _productService.GetTotalStockQuantityAsync(product);
                         if (stockQuantity > 0)
                             productIsInStock = true;
                         else
@@ -529,7 +714,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                         if (!product.DisplayStockAvailability)
                             productIsInStock = true;
 
-                        var combination = _productAttributeParser.FindProductAttributeCombination(product, attributeXml);
+                        var combination = await _productAttributeParser.FindProductAttributeCombinationAsync(product, attributeXml);
                         if (combination != null)
                         {
                             //combination exists
@@ -555,7 +740,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                     break;
             }
 
-            var values = _productAttributeParser.ParseProductAttributeValues(attributeXml);
+            var values = await _productAttributeParser.ParseProductAttributeValuesAsync(attributeXml);
             if (values.Count > 0)
             {
                 for (var i = 0; i < values.Count; i++)
@@ -564,15 +749,15 @@ namespace Nop.Plugin.Widgets.Retargeting
                     if (i < values.Count - 1)
                         variationCode += "-";
 
-                    var attributeMapping = _productAttributeService.GetProductAttributeMappingById(values[i].ProductAttributeMappingId);
-                    var productAttribute = _productAttributeService.GetProductAttributeById(attributeMapping.ProductAttributeId);
+                    var attributeMapping = await _productAttributeService.GetProductAttributeMappingByIdAsync(values[i].ProductAttributeMappingId);
+                    var productAttribute = await _productAttributeService.GetProductAttributeByIdAsync(attributeMapping.ProductAttributeId);
                     if (attributeMapping != null && productAttribute != null)
                     {
                         variationDetails.Add(
                             values[i].Id.ToString(),
                             new
                             {
-                                category_name = _localizationService.GetLocalized(productAttribute, x => x.Name),
+                                category_name = await _localizationService.GetLocalizedAsync(productAttribute, x => x.Name),
                                 category = productAttribute.Id,
                                 value = values[i].Name
                             });
@@ -580,7 +765,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                 }
             }
 
-            return productIsInStock;
+            return (productIsInStock, variationCode, variationDetails);
         }
 
         #endregion

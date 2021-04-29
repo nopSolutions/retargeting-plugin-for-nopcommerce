@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Encodings.Web;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -88,9 +89,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             _workContext = workContext;
         }
 
-        public IViewComponentResult Invoke(string widgetZone, object additionalData)
+        /// <returns>A task that represents the asynchronous operation</returns>
+        public async Task<IViewComponentResult> InvokeAsync(string widgetZone, object additionalData)
         {
-            var retargetingSettings = _settingService.LoadSetting<RetargetingSettings>(_storeContext.CurrentStore.Id);
+            var retargetingSettings = await _settingService.LoadSettingAsync<RetargetingSettings>((await _storeContext.GetCurrentStoreAsync()).Id);
 
             var model = new PublicInfoModel
             {
@@ -126,28 +128,28 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
 
             if (customerId.HasValue)
             {
-                var customer = _customerService.GetCustomerById(customerId.Value);
+                var customer = await _customerService.GetCustomerByIdAsync(customerId.Value);
                 if (customer != null)
                 {
                     model.RenderSetEmailFunc = true;
                     model.CustomerModel = new CustomerModel()
                     {
                         Name = JavaScriptEncoder.Default.Encode(
-                               _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.FirstNameAttribute) + " " +
-                               _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.LastNameAttribute)),
+                               await _genericAttributeService.GetAttributeAsync<string>(customer, NopCustomerDefaults.FirstNameAttribute) + " " +
+                               await _genericAttributeService.GetAttributeAsync<string>(customer, NopCustomerDefaults.LastNameAttribute)),
                         Email = customer.Email,
-                        City = JavaScriptEncoder.Default.Encode(_genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.CityAttribute) ?? ""),
-                        Phone = JavaScriptEncoder.Default.Encode(_genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.PhoneAttribute) ?? "")
+                        City = JavaScriptEncoder.Default.Encode(await _genericAttributeService.GetAttributeAsync<string>(customer, NopCustomerDefaults.CityAttribute) ?? ""),
+                        Phone = JavaScriptEncoder.Default.Encode(await _genericAttributeService.GetAttributeAsync<string>(customer, NopCustomerDefaults.PhoneAttribute) ?? "")
                     };
 
-                    var gender = _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.GenderAttribute);
+                    var gender = await _genericAttributeService.GetAttributeAsync<string>(customer, NopCustomerDefaults.GenderAttribute);
                     model.CustomerModel.Sex = gender switch
                     {
                         "M" => "1",
                         "F" => "0",
                         _ => "",
                     };
-                    var dateOfBirth = _genericAttributeService.GetAttribute<DateTime?>(customer, NopCustomerDefaults.DateOfBirthAttribute);
+                    var dateOfBirth = await _genericAttributeService.GetAttributeAsync<DateTime?>(customer, NopCustomerDefaults.DateOfBirthAttribute);
                     if (dateOfBirth.HasValue)
                         model.CustomerModel.Birthday = dateOfBirth.Value.ToString("dd-MM-yyyy");
 
@@ -163,7 +165,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
 
                 if (routeData.Values.ContainsKey("categoryid") && int.TryParse(routeData.Values["categoryid"].ToString(), out var categoryId) && categoryId > 0)
                 {
-                    var category = _categoryService.GetCategoryById(categoryId);
+                    var category = await _categoryService.GetCategoryByIdAsync(categoryId);
                     if (category != null)
                     {
                         var categoryModel = new CategoryModel
@@ -172,13 +174,13 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                             CategoryName = JavaScriptEncoder.Default.Encode(category.Name ?? "")
                         };
 
-                        var parentCategory = _categoryService.GetCategoryById(category.ParentCategoryId);
+                        var parentCategory = await _categoryService.GetCategoryByIdAsync(category.ParentCategoryId);
                         if (parentCategory != null)
                         {
                             categoryModel.ParentCategoryId = parentCategory.Id;
                             categoryModel.ParentCategoryName = JavaScriptEncoder.Default.Encode(parentCategory.Name ?? "");
 
-                            var parentParentCategory = _categoryService.GetCategoryById(parentCategory.ParentCategoryId);
+                            var parentParentCategory = await _categoryService.GetCategoryByIdAsync(parentCategory.ParentCategoryId);
                             if (parentParentCategory != null)
                             {
                                 categoryModel.ParentParentCategoryId = parentParentCategory.Id;
@@ -201,7 +203,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                     int.TryParse(routeData.Values["manufacturerid"].ToString(), out var manufacturerId) &&
                     manufacturerId > 0)
                 {
-                    var manufacturer = _manufacturerService.GetManufacturerById(manufacturerId);
+                    var manufacturer = await _manufacturerService.GetManufacturerByIdAsync(manufacturerId);
                     if (manufacturer != null)
                     {
                         var manufacturerModel = new ManufacturerModel
@@ -225,7 +227,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                     int.TryParse(routeData.Values["productid"].ToString(), out var productId) &&
                     productId > 0)
                 {
-                    var product = _productService.GetProductById(productId);
+                    var product = await _productService.GetProductByIdAsync(productId);
                     if (product != null)
                         model.ProductId = product.Id;
                 }
@@ -243,20 +245,20 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                     int.TryParse(routeData.Values["orderid"].ToString(), out var orderId) &&
                     orderId > 0)
                 {
-                    order = _orderService.GetOrderById(orderId);
+                    order = await _orderService.GetOrderByIdAsync(orderId);
                 }
                 else
                 {
-                    order = _orderService.SearchOrders(_storeContext.CurrentStore.Id,
-                        customerId: _workContext.CurrentCustomer.Id, pageSize: 1)
+                    order = (await _orderService.SearchOrdersAsync((await _storeContext.GetCurrentStoreAsync()).Id,
+                        customerId: (await _workContext.GetCurrentCustomerAsync()).Id, pageSize: 1))
                         .FirstOrDefault();
                 }
 
-                if (order != null && !order.Deleted && _workContext.CurrentCustomer.Id == order.CustomerId)
+                if (order != null && !order.Deleted && (await _workContext.GetCurrentCustomerAsync()).Id == order.CustomerId)
                 {
                     model.RenderSendOrderFunc = true;
 
-                    var billingAddress = _addressService.GetAddressById(order.BillingAddressId);
+                    var billingAddress = await _addressService.GetAddressByIdAsync(order.BillingAddressId);
                     var orderModel = new OrderModel
                     {
                         Id = order.Id,
@@ -266,7 +268,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                         FirstName = JavaScriptEncoder.Default.Encode(billingAddress?.FirstName ?? ""),
                         LastName = JavaScriptEncoder.Default.Encode(billingAddress?.LastName ?? ""),
                         Phone = JavaScriptEncoder.Default.Encode(billingAddress?.PhoneNumber ?? ""),
-                        State = JavaScriptEncoder.Default.Encode(_stateProvinceService.GetStateProvinceByAddress(billingAddress)?.Name ?? ""),
+                        State = JavaScriptEncoder.Default.Encode((await _stateProvinceService.GetStateProvinceByAddressAsync(billingAddress))?.Name ?? ""),
                         Address = JavaScriptEncoder.Default.Encode($"{billingAddress?.Address1} {billingAddress?.Address2}"),
                         Shipping =
                             order.CustomerTaxDisplayType == TaxDisplayType.IncludingTax
@@ -278,19 +280,19 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                     };
 
                     //discount codes
-                    var discountsWithCouponCodes =
-                        _discountService.GetAllDiscountUsageHistory(orderId: order.Id)                            
-                            .Where(x => !string.IsNullOrEmpty(_discountService.GetDiscountById(x.DiscountId)?.CouponCode))
-                            .Select(x => _discountService.GetDiscountById(x.DiscountId)?.CouponCode)
-                            .ToList();
+                    var discountsWithCouponCodes = await (await _discountService.GetAllDiscountUsageHistoryAsync(orderId: order.Id))
+                        .WhereAwait(async x => !string.IsNullOrEmpty((await _discountService.GetDiscountByIdAsync(x.DiscountId))?.CouponCode))
+                        .SelectAwait(async x => (await _discountService.GetDiscountByIdAsync(x.DiscountId))?.CouponCode)
+                        .ToListAsync();
+
                     orderModel.DiscountCode = discountsWithCouponCodes;
 
-                    var dateOfBirth = _genericAttributeService.GetAttribute<DateTime?>(_customerService.GetCustomerById(order.CustomerId), NopCustomerDefaults.DateOfBirthAttribute);
+                    var dateOfBirth = await _genericAttributeService.GetAttributeAsync<DateTime?>(await _customerService.GetCustomerByIdAsync(order.CustomerId), NopCustomerDefaults.DateOfBirthAttribute);
                     if (dateOfBirth.HasValue)
                         orderModel.Birthday = dateOfBirth.Value.ToString("dd-mm-yyyy");
 
                     //order items
-                    foreach (var orderItem in _orderService.GetOrderItems(order.Id))
+                    foreach (var orderItem in await _orderService.GetOrderItemsAsync(order.Id))
                     {
                         var itemPrice = order.CustomerTaxDisplayType == TaxDisplayType.IncludingTax
                                             ? orderItem.UnitPriceInclTax
@@ -302,7 +304,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                             Price = itemPrice.ToString("0.00", CultureInfo.InvariantCulture)
                         };
 
-                        var values = _productAttributeParser.ParseProductAttributeValues(orderItem.AttributesXml);
+                        var values = await _productAttributeParser.ParseProductAttributeValuesAsync(orderItem.AttributesXml);
                         for (var i = 0; i < values.Count; i++)
                         {
                             item.VariationCode += values[i].Id;
@@ -338,7 +340,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
                     int.TryParse(routeData.Values["topicid"].ToString(), out var topicId))
                 {
                     var systemNames = retargetingSettings.HelpTopicSystemNames.Split(Convert.ToChar(",")).Select(s => s.Trim()).ToList();
-                    var topic = _topicService.GetTopicById(topicId);
+                    var topic = await _topicService.GetTopicByIdAsync(topicId);
                     if (topic != null && systemNames.Contains(topic.SystemName))
                     {
                         model.RenderVisitHelpPageFunc = true;
@@ -359,7 +361,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Components
             {
                 model.RenderCheckoutIdsFunc = true;
 
-                foreach (var cartItem in _shoppingCartService.GetShoppingCart(_workContext.CurrentCustomer, ShoppingCartType.ShoppingCart, _storeContext.CurrentStore.Id))
+                foreach (var cartItem in await _shoppingCartService.GetShoppingCartAsync(await _workContext.GetCurrentCustomerAsync(), ShoppingCartType.ShoppingCart, (await _storeContext.GetCurrentStoreAsync()).Id))
                 {
                     model.CartItemIds += cartItem.ProductId;
                     model.CartItemIds += ",";

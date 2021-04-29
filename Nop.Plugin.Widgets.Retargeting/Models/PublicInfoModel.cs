@@ -2,7 +2,7 @@
 
 namespace Nop.Plugin.Widgets.Retargeting.Models
 {
-    public class PublicInfoModel
+    public record PublicInfoModel
     {
         public PublicInfoModel()
         {

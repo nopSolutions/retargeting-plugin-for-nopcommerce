@@ -2,6 +2,7 @@
 using Nop.Services.Authentication;
 using Nop.Services.Customers;
 using Microsoft.AspNetCore.Http;
+using System.Threading.Tasks;
 
 namespace Nop.Plugin.Widgets.Retargeting.Services
 {
@@ -15,9 +16,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public override void SignIn(Customer customer, bool createPersistentCookie)
+        public override async Task SignInAsync(Customer customer, bool createPersistentCookie)
         {
-            base.SignIn(customer, createPersistentCookie);
+            await base.SignInAsync(customer, createPersistentCookie);
 
             _httpContextAccessor.HttpContext?.Session?.SetInt32("ra_CustomerId", customer.Id);
         }

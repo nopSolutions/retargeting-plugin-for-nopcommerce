@@ -5,41 +5,42 @@ using Nop.Services.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Http;
+using System.Threading.Tasks;
 
 namespace Nop.Plugin.Widgets.Retargeting.Filters
 {
     public class RetargetingAddToCartFilterAttribute : ActionFilterAttribute
     {
-        public override void OnActionExecuted(ActionExecutedContext filterContext)
+        public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
+            ActionExecutedContext actionExecutedContext = await next();
+
             var settingService = EngineContext.Current.Resolve<ISettingService>();
             var storeContext = EngineContext.Current.Resolve<IStoreContext>();
-            var retargetingSettings = settingService.LoadSetting<RetargetingSettings>(storeContext.CurrentStore.Id);
+            var retargetingSettings = await settingService.LoadSettingAsync<RetargetingSettings>((await storeContext.GetCurrentStoreAsync()).Id);
 
-            if (filterContext.HttpContext.Session != null &&
+            if (actionExecutedContext.HttpContext.Session != null &&
                 !retargetingSettings.UseHttpPostInsteadOfAjaxInAddToCart &&
-                filterContext.HttpContext.Session.Get("ra_addToCartProductInfo") != null)
+                actionExecutedContext.HttpContext.Session.Get("ra_addToCartProductInfo") != null)
             {
-                var jsonResult = (filterContext.Result as JsonResult);
+                var jsonResult = (actionExecutedContext.Result as JsonResult);
                 if (jsonResult != null)
                 {
-                    var jsonData = ((JsonResult)filterContext.Result).Value;
+                    var jsonData = ((JsonResult)actionExecutedContext.Result).Value;
                     var data = JObject.FromObject(jsonData);
 
-                    var addToCartProductInfo = filterContext.HttpContext.Session.GetString("ra_addToCartProductInfo");
+                    var addToCartProductInfo = actionExecutedContext.HttpContext.Session.GetString("ra_addToCartProductInfo");
                     data.Add("ra_addToCartProductInfo", addToCartProductInfo);
 
-                    filterContext.HttpContext.Session.Remove("ra_addToCartProductInfo");
+                    actionExecutedContext.HttpContext.Session.Remove("ra_addToCartProductInfo");
 
-                    filterContext.Result = new ContentResult
+                    actionExecutedContext.Result = new ContentResult
                     {
                         Content = data.ToString(),
                         ContentType = "application/json"
                     };
                 }
             }
-
-            base.OnActionExecuted(filterContext);
         }
     }
 }

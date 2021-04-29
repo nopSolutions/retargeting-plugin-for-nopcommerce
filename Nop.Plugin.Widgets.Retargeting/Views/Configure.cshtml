@@ -1,15 +1,16 @@
-﻿@{
+﻿@model Nop.Plugin.Widgets.Retargeting.Models.ConfigurationModel
+@using Nop.Plugin.Widgets.Retargeting;
+
+@{
     Layout = "_ConfigurePlugin";
 }
-@model Nop.Plugin.Widgets.Retargeting.Models.ConfigurationModel
-
-@using Nop.Plugin.Widgets.Retargeting;
 
 @await Component.InvokeAsync("StoreScopeConfiguration")
 
 <form asp-controller="WidgetsRetargeting" asp-action="Configure" method="post">
-    <nop-panels id="retargeting-configure">
-        <nop-panel asp-name="retargeting-configuration" asp-icon="fa fa-info" asp-title=" @T("Plugins.Widgets.Retargeting.Configuration")" asp-hide-block-attribute-name="@RetargetingDefaults.HideConfigurationBlock" asp-hide="@Model.HideConfigurationBlock" asp-advanced="false">@await Html.PartialAsync("~/Plugins/Widgets.Retargeting/Views/_Configure.Configuration.cshtml", Model)</nop-panel>
-        <nop-panel asp-name="retargeting-preconfigure" asp-icon="fa fa-exchange" asp-title="@T("Plugins.Widgets.Retargeting.PreconfigureSystem")" asp-hide-block-attribute-name="@RetargetingDefaults.HidePreconfigureBlock" asp-hide="@Model.HidePreconfigureBlock" asp-advanced="false">@await Html.PartialAsync("~/Plugins/Widgets.Retargeting/Views/_Configure.Preconfigure.cshtml", Model)</nop-panel>
-    </nop-panels>
+    <nop-cards id="retargeting-configure">
+        <nop-card asp-name="retargeting-configuration" asp-icon="fas fa-info" asp-title="@T("Plugins.Widgets.Retargeting.Configuration")" asp-hide-block-attribute-name="@RetargetingDefaults.HideConfigurationBlock" asp-hide="@Model.HideConfigurationBlock" asp-advanced="false">@await Html.PartialAsync("~/Plugins/Widgets.Retargeting/Views/_Configure.Configuration.cshtml", Model)</nop-card>
+
+        <nop-card asp-name="retargeting-preconfigure" asp-icon="fas fa-exchange" asp-title="@T("Plugins.Widgets.Retargeting.PreconfigureSystem")" asp-hide-block-attribute-name="@RetargetingDefaults.HidePreconfigureBlock" asp-hide="@Model.HidePreconfigureBlock" asp-advanced="false">@await Html.PartialAsync("~/Plugins/Widgets.Retargeting/Views/_Configure.Preconfigure.cshtml", Model)</nop-card>
+    </nop-cards>
 </form>

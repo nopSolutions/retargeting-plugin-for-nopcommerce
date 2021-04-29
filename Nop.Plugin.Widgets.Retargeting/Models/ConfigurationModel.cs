@@ -3,7 +3,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Nop.Plugin.Widgets.Retargeting.Models
 {
-    public class ConfigurationModel
+    /// <summary>
+    /// Represents plugin configuration model
+    /// </summary>
+    public record ConfigurationModel
     {
         public int ActiveStoreScopeConfiguration { get; set; }
 
