@@ -354,7 +354,7 @@ namespace Nop.Plugin.Widgets.Retargeting
         /// <returns>Result in CSV format</returns>
         public async Task<string> ExportProductsToCsvAsync()
         {
-            const string separator = ",";
+            const char separator = ',';
             var sb = new StringBuilder();
 
             //get URL helper
@@ -421,7 +421,7 @@ namespace Nop.Plugin.Widgets.Retargeting
                     sb.Append(separator);
 
                     //price
-                    var (price, priceWithDiscount) = await GetProductPrice(currentProduct);
+                    var (price, priceWithDiscount) = await GetProductPriceAsync(currentProduct);
 
                     sb.Append(price);
                     sb.Append(separator);
@@ -529,7 +529,7 @@ namespace Nop.Plugin.Widgets.Retargeting
         /// </summary>
         /// <param name="product"></param>
         /// <returns>Product price and price with discount</returns>
-        public async Task<(string price, string priceWithDiscount)> GetProductPrice(Product product)
+        public async Task<(string price, string priceWithDiscount)> GetProductPriceAsync(Product product)
         {
             var priceBase = decimal.Zero;
             var priceWithDiscountBase = decimal.Zero;
@@ -579,7 +579,7 @@ namespace Nop.Plugin.Widgets.Retargeting
         /// </summary>
         /// <param name="orderId"></param>
         /// <returns>A task that represents the asynchronous operation</returns>
-        public async Task SendOrder(int orderId)
+        public async Task SendOrderAsync(int orderId)
         {
             var retargetingSettings = await _settingService.LoadSettingAsync<RetargetingSettings>((await _storeContext.GetCurrentStoreAsync()).Id);
 
@@ -646,13 +646,13 @@ namespace Nop.Plugin.Widgets.Retargeting
 
                     //send order using Retargeting REST API 
                     var restApiHelper = new RetargetingRestApiHelper();
-                    var response = restApiHelper.GetJson(_logger, "https://retargeting.biz/api/1.0/order/save.json", HttpMethod.Post, sb.ToString());
+                    var response = await restApiHelper.GetJsonAsync(_logger, "https://retargeting.biz/api/1.0/order/save.json", HttpMethod.Post, sb.ToString());
 
                     //order note
                     await _orderService.InsertOrderNoteAsync(new OrderNote
                     {
                         OrderId = order.Id,
-                        Note = string.Format("Retargeting REST API. Saving the order data result: {0}", response.Result),
+                        Note = string.Format("Retargeting REST API. Saving the order data result: {0}", response),
                         DisplayToCustomer = false,
                         CreatedOnUtc = DateTime.UtcNow
                     });

@@ -22,7 +22,7 @@
     <None Remove="Views\PublicInfo.cshtml" />
     <None Remove="Views\_Configure.Configuration.cshtml" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <Content Include="logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -46,17 +46,16 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  
   <ItemGroup>
     <ProjectReference Include="..\..\Presentation\Nop.Web.Framework\Nop.Web.Framework.csproj" />
     <ClearPluginAssemblies Include="$(MSBuildProjectDirectory)\..\..\Build\ClearPluginAssemblies.proj" />
   </ItemGroup>
 
   <!-- This target execute after "Build" target -->
-   <Target Name="NopTarget" AfterTargets="Build">
-       <!-- Delete unnecessary libraries from plugins path -->
-     <MSBuild Projects="@(ClearPluginAssemblies)"
-              Properties="PluginPath=$(MSBuildProjectDirectory)\$(OutDir)"
-              Targets="NopClear" />
-   </Target>
+  <Target Name="NopTarget" AfterTargets="Build">
+    <!-- Delete unnecessary libraries from plugins path -->
+    <MSBuild Projects="@(ClearPluginAssemblies)" Properties="PluginPath=$(MSBuildProjectDirectory)\$(OutDir)" Targets="NopClear" />
+  </Target>
 
 </Project>

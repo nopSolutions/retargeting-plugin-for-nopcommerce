@@ -138,10 +138,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
                 if (pluginDescriptor == null)
                     throw new Exception(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
-                if (!(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
+                if (pluginDescriptor.Instance<IPlugin>() is not RetargetingPlugin plugin)
                     throw new Exception(await _localizationService.GetResourceAsync("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
-                await plugin.SendOrder(placeOrderResult.PlacedOrder.Id);
+                await plugin.SendOrderAsync(placeOrderResult.PlacedOrder.Id);
             }
 
             return placeOrderResult;

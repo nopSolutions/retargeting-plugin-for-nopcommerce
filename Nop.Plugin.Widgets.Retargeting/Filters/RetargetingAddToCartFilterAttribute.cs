@@ -1,11 +1,11 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Newtonsoft.Json.Linq;
 using Nop.Core;
 using Nop.Core.Infrastructure;
 using Nop.Services.Configuration;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.AspNetCore.Http;
-using System.Threading.Tasks;
 
 namespace Nop.Plugin.Widgets.Retargeting.Filters
 {
@@ -23,10 +23,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Filters
                 !retargetingSettings.UseHttpPostInsteadOfAjaxInAddToCart &&
                 actionExecutedContext.HttpContext.Session.Get("ra_addToCartProductInfo") != null)
             {
-                var jsonResult = (actionExecutedContext.Result as JsonResult);
-                if (jsonResult != null)
+                if (actionExecutedContext.Result is JsonResult jsonResult)
                 {
-                    var jsonData = ((JsonResult)actionExecutedContext.Result).Value;
+                    var jsonData = jsonResult.Value;
                     var data = JObject.FromObject(jsonData);
 
                     var addToCartProductInfo = actionExecutedContext.HttpContext.Session.GetString("ra_addToCartProductInfo");

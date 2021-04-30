@@ -11,7 +11,6 @@ using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Orders;
-using Nop.Core.Events;
 using Nop.Core.Http.Extensions;
 using Nop.Data;
 using Nop.Services.Catalog;
@@ -53,7 +52,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Services
             ICustomerService customerService,
             IDateRangeService dateRangeService,
             IDateTimeHelper dateTimeHelper,
-            IEventPublisher eventPublisher,
             IGenericAttributeService genericAttributeService,
             ILocalizationService localizationService,
             IPermissionService permissionService,

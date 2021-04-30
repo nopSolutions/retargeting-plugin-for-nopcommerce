@@ -1,8 +1,8 @@
-﻿using Nop.Core.Domain.Customers;
+﻿using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Nop.Core.Domain.Customers;
 using Nop.Services.Authentication;
 using Nop.Services.Customers;
-using Microsoft.AspNetCore.Http;
-using System.Threading.Tasks;
 
 namespace Nop.Plugin.Widgets.Retargeting.Services
 {

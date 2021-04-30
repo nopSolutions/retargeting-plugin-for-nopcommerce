@@ -592,7 +592,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 productInfo.Add("url", string.Format("{0}{1}", (await _storeContext.GetCurrentStoreAsync()).Url, await _urlRecordService.GetSeNameAsync(product)));
                 productInfo.Add("img", await GetProductImageUrlAsync(product));
 
-                var (price, priceWithDiscount) = await plugin.GetProductPrice(product);
+                var (price, priceWithDiscount) = await plugin.GetProductPriceAsync(product);
                 productInfo.Add("price", price);
                 productInfo.Add("promo", priceWithDiscount);
 

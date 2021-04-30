@@ -9,7 +9,7 @@ namespace Nop.Plugin.Widgets.Retargeting
 {
     public class RetargetingRestApiHelper
     {
-        public async Task<string> GetJson(ILogger logger, string url, HttpMethod method, string data = null)
+        public async Task<string> GetJsonAsync(ILogger logger, string url, HttpMethod method, string data = null)
         {
             var result = string.Empty;
 

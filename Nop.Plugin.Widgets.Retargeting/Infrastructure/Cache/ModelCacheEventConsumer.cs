@@ -27,7 +27,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache
         /// {2} : is connection secured
         /// {3} : current store ID
         /// </remarks>
-        public static CacheKey ProductPicturesModelKey => new CacheKey("Nop.plugins.widgets.retargeting.product.pictures-{0}-{1}-{2}", ProductPicturesPrefixCacheKey, ProductPicturesPrefixCacheKeyById);
+        public static CacheKey ProductPicturesModelKey => new("Nop.plugins.widgets.retargeting.product.pictures-{0}-{1}-{2}", ProductPicturesPrefixCacheKey, ProductPicturesPrefixCacheKeyById);
         public static string ProductPicturesPrefixCacheKey => "Nop.plugins.widgets.retargeting.product.pictures";
         public static string ProductPicturesPrefixCacheKeyById => "Nop.plugins.widgets.retargeting.product.pictures-{0}-";
 
