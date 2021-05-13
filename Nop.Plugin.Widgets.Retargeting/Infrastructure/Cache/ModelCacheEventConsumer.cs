@@ -14,37 +14,41 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache
         IConsumer<EntityInsertedEvent<Language>>,
         IConsumer<EntityUpdatedEvent<Language>>,
         IConsumer<EntityDeletedEvent<Language>>,
-        //manufacturers
-        IConsumer<EntityUpdatedEvent<Manufacturer>>,
-        IConsumer<EntityDeletedEvent<Manufacturer>>,
-        //product manufacturers
-        IConsumer<EntityInsertedEvent<ProductManufacturer>>,
-        IConsumer<EntityUpdatedEvent<ProductManufacturer>>,
-        IConsumer<EntityDeletedEvent<ProductManufacturer>>
+        //Product picture mapping
+        IConsumer<EntityInsertedEvent<ProductPicture>>,
+        IConsumer<EntityUpdatedEvent<ProductPicture>>,
+        IConsumer<EntityDeletedEvent<ProductPicture>>,
+        //product categories
+        IConsumer<EntityInsertedEvent<ProductCategory>>,
+        IConsumer<EntityUpdatedEvent<ProductCategory>>,
+        IConsumer<EntityDeletedEvent<ProductCategory>>,
+        //categories
+        IConsumer<EntityUpdatedEvent<Category>>,
+        IConsumer<EntityDeletedEvent<Category>>
     {
         /// <summary>
-        /// Key for ProductManufacturers model caching
+        /// Key for product pictures caching
         /// </summary>
         /// <remarks>
         /// {0} : product id
-        /// {1} : language id
-        /// {2} : roles of the current user
+        /// {2} : is connection secured
         /// {3} : current store ID
         /// </remarks>
-        public const string PRODUCT_MANUFACTURERS_MODEL_KEY = "Nop.plugins.widgets.retargeting.product.manufacturers-{0}-{1}-{2}-{3}";
-        public const string PRODUCT_MANUFACTURERS_PATTERN_KEY = "Nop.plugins.widgets.retargeting.product.manufacturers";
+        public const string PRODUCT_PICTURES_MODEL_KEY = "Nop.plugins.widgets.retargeting.product.pictures-{0}-{1}-{2}";
+        public const string PRODUCT_PICTURES_PATTERN_KEY_BY_ID = "Nop.plugins.widgets.retargeting.product.pictures-{0}-";
 
         /// <summary>
-        /// Key for ProductManufacturers model caching
+        /// Key for ProductBreadcrumbModel caching
         /// </summary>
         /// <remarks>
         /// {0} : product id
         /// {1} : language id
-        /// {2} : roles of the current user
+        /// {2} : comma separated list of customer roles
         /// {3} : current store ID
         /// </remarks>
-        public const string PRODUCT_CATEGORIES_MODEL_KEY = "Nop.plugins.widgets.retargeting.product.categories-{0}-{1}-{2}-{3}";
-        public const string PRODUCT_CATEGORIES_PATTERN_KEY = "Nop.plugins.widgets.retargeting.categories.manufacturers";
+        public const string PRODUCT_BREADCRUMB_MODEL_KEY = "Nop.plugins.widgets.retargeting.product.breadcrumb-{0}-{1}-{2}-{3}";
+        public const string PRODUCT_BREADCRUMB_PATTERN_KEY = "Nop.plugins.widgets.retargeting.product.breadcrumb";
+        public const string PRODUCT_BREADCRUMB_PATTERN_KEY_BY_ID = "Nop.plugins.widgets.retargeting.product.breadcrumb-{0}-";
 
         private readonly IStaticCacheManager _cacheManager;
 
@@ -56,39 +60,53 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache
         //languages
         public void HandleEvent(EntityInsertedEvent<Language> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPattern(PRODUCT_BREADCRUMB_PATTERN_KEY);
         }
         public void HandleEvent(EntityUpdatedEvent<Language> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPattern(PRODUCT_BREADCRUMB_PATTERN_KEY);
         }
         public void HandleEvent(EntityDeletedEvent<Language> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPattern(PRODUCT_BREADCRUMB_PATTERN_KEY);
         }
 
-        //manufacturers
-        public void HandleEvent(EntityUpdatedEvent<Manufacturer> eventMessage)
+        //product picture mappings
+        public void HandleEvent(EntityInsertedEvent<ProductPicture> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPattern(string.Format(PRODUCT_PICTURES_PATTERN_KEY_BY_ID, eventMessage.Entity.ProductId));
         }
-        public void HandleEvent(EntityDeletedEvent<Manufacturer> eventMessage)
+        public void HandleEvent(EntityUpdatedEvent<ProductPicture> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPattern(string.Format(PRODUCT_PICTURES_PATTERN_KEY_BY_ID, eventMessage.Entity.ProductId));
+        }
+        public void HandleEvent(EntityDeletedEvent<ProductPicture> eventMessage)
+        {
+            _cacheManager.RemoveByPattern(string.Format(PRODUCT_PICTURES_PATTERN_KEY_BY_ID, eventMessage.Entity.ProductId));
         }
 
-        //product manufacturers
-        public void HandleEvent(EntityInsertedEvent<ProductManufacturer> eventMessage)
+        //product categories
+        public void HandleEvent(EntityInsertedEvent<ProductCategory> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPattern(string.Format(PRODUCT_BREADCRUMB_PATTERN_KEY_BY_ID, eventMessage.Entity.ProductId));
         }
-        public void HandleEvent(EntityUpdatedEvent<ProductManufacturer> eventMessage)
+        public void HandleEvent(EntityUpdatedEvent<ProductCategory> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPattern(string.Format(PRODUCT_BREADCRUMB_PATTERN_KEY_BY_ID, eventMessage.Entity.ProductId));
         }
-        public void HandleEvent(EntityDeletedEvent<ProductManufacturer> eventMessage)
+        public void HandleEvent(EntityDeletedEvent<ProductCategory> eventMessage)
         {
-            _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _cacheManager.RemoveByPattern(string.Format(PRODUCT_BREADCRUMB_PATTERN_KEY_BY_ID, eventMessage.Entity.ProductId));
+        }
+
+        //categories
+        public void HandleEvent(EntityUpdatedEvent<Category> eventMessage)
+        {
+            _cacheManager.RemoveByPattern(PRODUCT_BREADCRUMB_PATTERN_KEY);
+        }
+        public void HandleEvent(EntityDeletedEvent<Category> eventMessage)
+        {
+            _cacheManager.RemoveByPattern(PRODUCT_BREADCRUMB_PATTERN_KEY);
         }
     }
 }

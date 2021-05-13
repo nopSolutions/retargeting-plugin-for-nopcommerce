@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -35,6 +36,8 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 {
     public class WidgetsRetargetingController : BasePluginController
     {
+	    #region Fields
+
         private readonly EmailAccountSettings _emailAccountSettings;
         private readonly ICacheManager _cacheManager;
         private readonly ICategoryService _categoryService;
@@ -54,6 +57,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         private readonly IStoreContext _storeContext;
         private readonly IUrlRecordService _urlRecordService;
         private readonly IWorkContext _workContext;
+
+        #endregion
+
+        #region Ctor    
 
         public WidgetsRetargetingController(
             EmailAccountSettings emailAccountSettings,
@@ -97,6 +104,98 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             _urlRecordService = urlRecordService;
             _workContext = workContext;
         }
+
+        #endregion
+
+        #region Utilities
+
+        [NonAction]
+        private string GetProductImageUrl(Product product)
+        {
+            var pictures = _pictureService.GetPicturesByProductId(product.Id);
+            var defaultPicture = pictures.FirstOrDefault();
+
+            return _pictureService.GetPictureUrl(defaultPicture);
+        }
+
+        private string ParseProductAttributes(Product product, IFormCollection form)
+        {
+            string attributesXml = "";
+
+            #region Product attributes
+
+            var productAttributes = _productAttributeService.GetProductAttributeMappingsByProductId(product.Id);
+            foreach (var attribute in productAttributes)
+            {
+                string controlId = string.Format("product_attribute_{0}", attribute.Id);
+                switch (attribute.AttributeControlType)
+                {
+                    case AttributeControlType.DropdownList:
+                    case AttributeControlType.RadioList:
+                    case AttributeControlType.ColorSquares:
+                    case AttributeControlType.ImageSquares:
+                        {
+                            var ctrlAttributes = form[controlId];
+                            if (!string.IsNullOrEmpty(ctrlAttributes))
+                            {
+                                int selectedAttributeId = int.Parse(ctrlAttributes);
+                                if (selectedAttributeId > 0)
+                                    attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
+                                        attribute, selectedAttributeId.ToString());
+                            }
+                        }
+                        break;
+                    case AttributeControlType.Checkboxes:
+                        {
+                            var ctrlAttributes = form[controlId].ToString();
+                            if (!String.IsNullOrEmpty(ctrlAttributes))
+                            {
+                                foreach (var item in ctrlAttributes.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    int selectedAttributeId = int.Parse(item);
+                                    if (selectedAttributeId > 0)
+                                        attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
+                                            attribute, selectedAttributeId.ToString());
+                                }
+                            }
+                        }
+                        break;
+                    case AttributeControlType.ReadonlyCheckboxes:
+                        {
+                            //load read-only (already server-side selected) values
+                            var attributeValues = _productAttributeService.GetProductAttributeValues(attribute.Id);
+                            foreach (var selectedAttributeId in attributeValues
+                                .Where(v => v.IsPreSelected)
+                                .Select(v => v.Id)
+                                .ToList())
+                            {
+                                attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
+                                    attribute, selectedAttributeId.ToString());
+                            }
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            //validate conditional attributes (if specified)
+            foreach (var attribute in productAttributes)
+            {
+                var conditionMet = _productAttributeParser.IsConditionMet(attribute, attributesXml);
+                if (conditionMet.HasValue && !conditionMet.Value)
+                {
+                    attributesXml = _productAttributeParser.RemoveProductAttribute(attributesXml, attribute);
+                }
+            }
+
+            #endregion
+
+            return attributesXml;
+        }
+
+        #endregion
+
+        #region Methods
 
         [AuthorizeAdmin]
         [Area(AreaNames.Admin)]
@@ -315,7 +414,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         [HttpsRequirement(SslRequirement.No)]
         public IActionResult ProductStockFeed()
         {
-            var productFeed = new object();
+            var fileName = string.Format("feed_{0}_{1}.csv", DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"), CommonHelper.GenerateRandomDigitCode(4));
+            var result = string.Empty;
+
             try
             {
                 var pluginDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("Widgets.Retargeting");
@@ -326,7 +427,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 if (plugin == null)
                     throw new Exception("Cannot load the plugin");
 
-                productFeed = plugin.GenerateProductStockFeed();
+                result = plugin.ExportProductsToCsv();
             }
             catch (Exception exc)
             {
@@ -334,7 +435,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 _logger.Error(exc.Message, exc);
             }
 
-            return Json(productFeed);
+            return File(Encoding.UTF8.GetBytes(result), MimeTypes.TextCsv, fileName);
         }
 
         [HttpsRequirement(SslRequirement.No)]
@@ -390,15 +491,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             return Json(discountCodes.ToArray());
         }
 
-        [NonAction]
-        private string GetProductImageUrl(Product product)
-        {
-            var pictures = _pictureService.GetPicturesByProductId(product.Id);
-            var defaultPicture = pictures.FirstOrDefault();
-
-            return _pictureService.GetPictureUrl(defaultPicture);
-        }
-
         [HttpPost]
         public IActionResult GetProductInfo(int productId)
         {
@@ -425,53 +517,23 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 productInfo.Add("url", string.Format("{0}{1}", _storeContext.CurrentStore.Url, _urlRecordService.GetSeName(product)));
                 productInfo.Add("img", GetProductImageUrl(product));
 
-                decimal price;
-                decimal priceWithDiscount;
-                plugin.GetProductPrice(product, out price, out priceWithDiscount);
-
-                if (price == 0)
-                    price = 1;
-
-                productInfo.Add("price", price.ToString("0.00", CultureInfo.InvariantCulture));
-                productInfo.Add("promo", priceWithDiscount.ToString("0.00", CultureInfo.InvariantCulture));
+                plugin.GetProductPrice(product, out var price, out var priceWithDiscount);
+                productInfo.Add("price", price);
+                productInfo.Add("promo", priceWithDiscount);
 
                 #endregion
 
                 #region Categories
 
-                var categoriesCacheKey =
-                    string.Format(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
-                        product.Id,
-                        _workContext.WorkingLanguage.Id,
-                        string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
-                        _storeContext.CurrentStore.Id);
-
-                var categories = _cacheManager.Get(categoriesCacheKey, () =>
-                {
-                    return _categoryService.GetProductCategoriesByProductId(product.Id)
-                        .Select(x => x.Category)
-                        .ToList();
-                });
+                var categories = _categoryService.GetProductCategoriesByProductId(product.Id)
+                    .Select(x => x.Category)
+                    .ToList();
 
                 if (categories.Count == 0)
-                {
                     if (product.ParentGroupedProductId > 0)
-                    {
-                        categoriesCacheKey =
-                            string.Format(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
-                                product.ParentGroupedProductId,
-                                _workContext.WorkingLanguage.Id,
-                                string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
-                                _storeContext.CurrentStore.Id);
-
-                        categories = _cacheManager.Get(categoriesCacheKey, () =>
-                        {
-                            return _categoryService.GetProductCategoriesByProductId(product.ParentGroupedProductId)
+                        categories = _categoryService.GetProductCategoriesByProductId(product.ParentGroupedProductId)
                                 .Select(x => x.Category)
                                 .ToList();
-                        });
-                    }
-                }
 
                 //product must have at least one category
                 if (categories.Count == 0)
@@ -481,10 +543,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 foreach (var category in categories)
                 {
                     var categoryObj = new Dictionary<string, object>
-                {
-                    {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(category, x => x.Name) ?? "")},
-                    {"id", category.Id}
-                };
+                    {
+                        {"name", JavaScriptEncoder.Default.Encode(_localizationService.GetLocalized(category, x => x.Name) ?? "")},
+                        {"id", category.Id}
+                    };
 
                     var breadcrumb = new List<object>();
                     if (category.ParentCategoryId > 0)
@@ -534,20 +596,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 #region Manufacturer
 
                 var manufacturer = new Dictionary<string, object>();
-
-                var manufacturersCacheKey =
-                    string.Format(ModelCacheEventConsumer.PRODUCT_MANUFACTURERS_MODEL_KEY,
-                        productId,
-                        _workContext.WorkingLanguage.Id,
-                        string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
-                        _storeContext.CurrentStore.Id);
-
-                var manufacturers = _cacheManager.Get(manufacturersCacheKey, () =>
-                {
-                    return _manufacturerService.GetProductManufacturersByProductId(productId)
+                var manufacturers = _manufacturerService.GetProductManufacturersByProductId(productId)
                         .Select(x => x.Manufacturer)
                         .ToList();
-                });
 
                 if (manufacturers.Count > 0)
                 {
@@ -704,81 +755,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             });
         }
 
-        private string ParseProductAttributes(Product product, IFormCollection form)
-        {
-            string attributesXml = "";
-
-            #region Product attributes
-
-            var productAttributes = _productAttributeService.GetProductAttributeMappingsByProductId(product.Id);
-            foreach (var attribute in productAttributes)
-            {
-                string controlId = string.Format("product_attribute_{0}", attribute.Id);
-                switch (attribute.AttributeControlType)
-                {
-                    case AttributeControlType.DropdownList:
-                    case AttributeControlType.RadioList:
-                    case AttributeControlType.ColorSquares:
-                    case AttributeControlType.ImageSquares:
-                        {
-                            var ctrlAttributes = form[controlId];
-                            if (!string.IsNullOrEmpty(ctrlAttributes))
-                            {
-                                int selectedAttributeId = int.Parse(ctrlAttributes);
-                                if (selectedAttributeId > 0)
-                                    attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
-                                        attribute, selectedAttributeId.ToString());
-                            }
-                        }
-                        break;
-                    case AttributeControlType.Checkboxes:
-                        {
-                            var ctrlAttributes = form[controlId].ToString();
-                            if (!String.IsNullOrEmpty(ctrlAttributes))
-                            {
-                                foreach (var item in ctrlAttributes.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-                                {
-                                    int selectedAttributeId = int.Parse(item);
-                                    if (selectedAttributeId > 0)
-                                        attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
-                                            attribute, selectedAttributeId.ToString());
-                                }
-                            }
-                        }
-                        break;
-                    case AttributeControlType.ReadonlyCheckboxes:
-                        {
-                            //load read-only (already server-side selected) values
-                            var attributeValues = _productAttributeService.GetProductAttributeValues(attribute.Id);
-                            foreach (var selectedAttributeId in attributeValues
-                                .Where(v => v.IsPreSelected)
-                                .Select(v => v.Id)
-                                .ToList())
-                            {
-                                attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
-                                    attribute, selectedAttributeId.ToString());
-                            }
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
-            //validate conditional attributes (if specified)
-            foreach (var attribute in productAttributes)
-            {
-                var conditionMet = _productAttributeParser.IsConditionMet(attribute, attributesXml);
-                if (conditionMet.HasValue && !conditionMet.Value)
-                {
-                    attributesXml = _productAttributeParser.RemoveProductAttribute(attributesXml, attribute);
-                }
-            }
-
-            #endregion
-
-            return attributesXml;
-        }
-
         /// <summary>
         /// Subscribe to Retargeting news
         /// </summary>
@@ -859,5 +835,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 fromAddress: email, fromName: RetargetingDefaults.UserAgent,
                 toAddress: RetargetingDefaults.SubscriptionEmail, toName: null);
         }
+
+        #endregion
     }
 }
