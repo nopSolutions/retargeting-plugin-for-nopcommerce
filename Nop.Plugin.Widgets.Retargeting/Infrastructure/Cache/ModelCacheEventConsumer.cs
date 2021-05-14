@@ -1,6 +1,6 @@
 ﻿using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
-using Nop.Core.Domain.Localization;
+using Nop.Core.Domain.Media;
 using Nop.Core.Events;
 using Nop.Services.Events;
 
@@ -10,85 +10,56 @@ namespace Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache
     /// Model cache event consumer (used for caching of presentation layer models)
     /// </summary>
     public partial class ModelCacheEventConsumer :
-        //languages
-        IConsumer<EntityInsertedEvent<Language>>,
-        IConsumer<EntityUpdatedEvent<Language>>,
-        IConsumer<EntityDeletedEvent<Language>>,
-        //manufacturers
-        IConsumer<EntityUpdatedEvent<Manufacturer>>,
-        IConsumer<EntityDeletedEvent<Manufacturer>>,
-        //product manufacturers
-        IConsumer<EntityInsertedEvent<ProductManufacturer>>,
-        IConsumer<EntityUpdatedEvent<ProductManufacturer>>,
-        IConsumer<EntityDeletedEvent<ProductManufacturer>>
+        //Picture
+        IConsumer<EntityUpdatedEvent<Picture>>,
+        IConsumer<EntityDeletedEvent<Picture>>,
+        //Product picture mapping
+        IConsumer<EntityInsertedEvent<ProductPicture>>,
+        IConsumer<EntityUpdatedEvent<ProductPicture>>,
+        IConsumer<EntityDeletedEvent<ProductPicture>>
     {
         /// <summary>
-        /// Key for ProductManufacturers model caching
+        /// Key for product pictures caching
         /// </summary>
         /// <remarks>
         /// {0} : product id
-        /// {1} : language id
-        /// {2} : roles of the current user
+        /// {2} : is connection secured
         /// {3} : current store ID
         /// </remarks>
-        public static CacheKey PRODUCT_MANUFACTURERS_MODEL_KEY = new CacheKey("Nop.plugins.widgets.retargeting.product.manufacturers-{0}-{1}-{2}-{3}");
-        public const string PRODUCT_MANUFACTURERS_PATTERN_KEY = "Nop.plugins.widgets.retargeting.product.manufacturers";
+        public static CacheKey ProductPicturesModelKey = new CacheKey("Nop.plugins.widgets.retargeting.product.pictures-{0}-{1}-{2}", ProductPicturesPrefixCacheKey, ProductPicturesPrefixCacheKeyById);
+        public static string ProductPicturesPrefixCacheKey => "Nop.plugins.widgets.retargeting.product.pictures";
+        public static string ProductPicturesPrefixCacheKeyById => "Nop.plugins.widgets.retargeting.product.pictures-{0}-";
 
-        /// <summary>
-        /// Key for ProductManufacturers model caching
-        /// </summary>
-        /// <remarks>
-        /// {0} : product id
-        /// {1} : language id
-        /// {2} : roles of the current user
-        /// {3} : current store ID
-        /// </remarks>
-        public static CacheKey PRODUCT_CATEGORIES_MODEL_KEY = new CacheKey("Nop.plugins.widgets.retargeting.product.categories-{0}-{1}-{2}-{3}");
-        public const string PRODUCT_CATEGORIES_PATTERN_KEY = "Nop.plugins.widgets.retargeting.categories.manufacturers";
+        private readonly IStaticCacheManager _staticCacheManager;
 
-        private readonly IStaticCacheManager _cacheManager;
-
-        public ModelCacheEventConsumer(IStaticCacheManager cacheManager)
+        public ModelCacheEventConsumer(IStaticCacheManager staticCacheManager)
         {
-            _cacheManager = cacheManager;
+            _staticCacheManager = staticCacheManager;
         }
 
-        //languages
-        public void HandleEvent(EntityInsertedEvent<Language> eventMessage)
+        public void HandleEvent(EntityUpdatedEvent<Picture> eventMessage)
         {
-            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
-        }
-        public void HandleEvent(EntityUpdatedEvent<Language> eventMessage)
-        {
-            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
-        }
-        public void HandleEvent(EntityDeletedEvent<Language> eventMessage)
-        {
-            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _staticCacheManager.RemoveByPrefix(ProductPicturesPrefixCacheKey);
         }
 
-        //manufacturers
-        public void HandleEvent(EntityUpdatedEvent<Manufacturer> eventMessage)
+        /// <returns>A task that represents the asynchronous operation</returns>
+        public void HandleEvent(EntityDeletedEvent<Picture> eventMessage)
         {
-            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
-        }
-        public void HandleEvent(EntityDeletedEvent<Manufacturer> eventMessage)
-        {
-            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _staticCacheManager.RemoveByPrefix(ProductPicturesPrefixCacheKey);
         }
 
-        //product manufacturers
-        public void HandleEvent(EntityInsertedEvent<ProductManufacturer> eventMessage)
+        //product picture mappings
+        public void HandleEvent(EntityInsertedEvent<ProductPicture> eventMessage)
         {
-            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _staticCacheManager.RemoveByPrefix(string.Format(ProductPicturesPrefixCacheKeyById, eventMessage.Entity.ProductId));
         }
-        public void HandleEvent(EntityUpdatedEvent<ProductManufacturer> eventMessage)
+        public void HandleEvent(EntityUpdatedEvent<ProductPicture> eventMessage)
         {
-            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _staticCacheManager.RemoveByPrefix(string.Format(ProductPicturesPrefixCacheKeyById, eventMessage.Entity.ProductId));
         }
-        public void HandleEvent(EntityDeletedEvent<ProductManufacturer> eventMessage)
+        public void HandleEvent(EntityDeletedEvent<ProductPicture> eventMessage)
         {
-            _cacheManager.RemoveByPrefix(PRODUCT_MANUFACTURERS_PATTERN_KEY);
+            _staticCacheManager.RemoveByPrefix(string.Format(ProductPicturesPrefixCacheKeyById, eventMessage.Entity.ProductId));
         }
     }
 }

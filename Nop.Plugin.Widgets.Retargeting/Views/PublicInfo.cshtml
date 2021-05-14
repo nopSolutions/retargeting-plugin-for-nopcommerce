@@ -6,6 +6,8 @@
     Layout = "";
 }
 
+<nop-antiforgery-token />
+
 <script asp-location="Footer">
     var add_to_cart_button_id = "";
     var price_label_id = "";
@@ -603,18 +605,12 @@
     function setVariation(attrInput) {
         var productId = $(attrInput).closest("[data-productid]").attr("data-productid");
 
-        var postData = {
-            productId: productId,
-            form: $("#product-details-form").serialize()
-        }
-        addAntiForgeryToken(postData);
-
         $.ajax({
             cache: false,
             async: true,
             type: 'POST',
-            url: "@Url.Action("IsProductCombinationInStock", "WidgetsRetargeting")",
-            data: postData,
+            url: '@Html.Raw(Url.Action("IsProductCombinationInStock", "WidgetsRetargeting"))' + '?productId=' + productId,
+            data: $('#product-details-form').serialize(),
             dataType: "json",
             success: function (data) {
                 var productVariation = false;
@@ -649,7 +645,7 @@
         _ra.visitHomePageInfo = {
             "visit": true
         }
-        
+
         if (_ra.ready !== undefined) {
             _ra.visitHomePage();
         }
@@ -657,7 +653,7 @@
 
     function pageNotFound () {
         _ra.pageNotFoundInfo = true;
-        
+
         if (_ra.ready !== undefined) {
             _ra.pageNotFoundPage();
         }

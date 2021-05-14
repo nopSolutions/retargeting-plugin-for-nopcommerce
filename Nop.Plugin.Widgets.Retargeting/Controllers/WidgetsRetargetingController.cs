@@ -1,23 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nop.Core;
-using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Discounts;
 using Nop.Core.Domain.Messages;
 using Nop.Core.Domain.Orders;
-using Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache;
 using Nop.Plugin.Widgets.Retargeting.Models;
-using Nop.Services.Caching;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Configuration;
-using Nop.Services.Customers;
 using Nop.Services.Discounts;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
@@ -36,10 +32,10 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
     [AutoValidateAntiforgeryToken]
     public class WidgetsRetargetingController : BasePluginController
     {
+        #region Fields
+
         private readonly EmailAccountSettings _emailAccountSettings;
-        private readonly ICacheKeyService _cacheKeyService;
         private readonly ICategoryService _categoryService;
-        private readonly ICustomerService _customerService;
         private readonly IDiscountService _discountService;
         private readonly IEmailAccountService _emailAccountService;
         private readonly IEmailSender _emailSender;
@@ -55,41 +51,38 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
         private readonly IProductService _productService;
         private readonly ISettingService _settingService;
         private readonly IShoppingCartService _shoppingCartService;
-        private readonly IStaticCacheManager _cacheManager;
         private readonly IStoreContext _storeContext;
         private readonly IUrlRecordService _urlRecordService;
         private readonly IWorkContext _workContext;
 
+        #endregion
+
+        #region Ctor    
+
         public WidgetsRetargetingController(
-            EmailAccountSettings emailAccountSettings,
-            ICacheKeyService cacheKeyService,
-            ICategoryService categoryService,
-            ICustomerService customerService,
-            IDiscountService discountService,
-            IEmailAccountService emailAccountService,
-            IEmailSender emailSender,
-            IGenericAttributeService genericAttributeService,
-            ILocalizationService localizationService,
-            ILogger logger,
-            IManufacturerService manufacturerService,
-            INotificationService notificationService,
-            IPictureService pictureService,
-            IPluginService pluginService,
-            IProductAttributeParser productAttributeParser,
-            IProductAttributeService productAttributeService,
-            IProductService productService,
-            ISettingService settingService,
-            IShoppingCartService shoppingCartService,
-            IStaticCacheManager cacheManager,
-            IStoreContext storeContext,
-            IUrlRecordService urlRecordService,
-            IWorkContext workContext
-            )
+                EmailAccountSettings emailAccountSettings,
+                ICategoryService categoryService,
+                IDiscountService discountService,
+                IEmailAccountService emailAccountService,
+                IEmailSender emailSender,
+                IGenericAttributeService genericAttributeService,
+                ILocalizationService localizationService,
+                ILogger logger,
+                IManufacturerService manufacturerService,
+                INotificationService notificationService,
+                IPictureService pictureService,
+                IPluginService pluginService,
+                IProductAttributeParser productAttributeParser,
+                IProductAttributeService productAttributeService,
+                IProductService productService,
+                ISettingService settingService,
+                IShoppingCartService shoppingCartService,
+                IStoreContext storeContext,
+                IUrlRecordService urlRecordService,
+                IWorkContext workContext
+                )
         {
-            _cacheKeyService = cacheKeyService;
-            _cacheManager = cacheManager;
             _categoryService = categoryService;
-            _customerService = customerService;
             _discountService = discountService;
             _emailAccountService = emailAccountService;
             _emailAccountSettings = emailAccountSettings;
@@ -110,6 +103,98 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             _urlRecordService = urlRecordService;
             _workContext = workContext;
         }
+
+        #endregion
+
+        #region Utilities
+
+        [NonAction]
+        private string GetProductImageUrl(Product product)
+        {
+            var pictures = _pictureService.GetPicturesByProductId(product.Id);
+            var defaultPicture = pictures.FirstOrDefault();
+
+            return _pictureService.GetPictureUrl(defaultPicture.Id);
+        }
+
+        private string ParseProductAttributes(Product product, IFormCollection form)
+        {
+            var attributesXml = "";
+
+            #region Product attributes
+
+            var productAttributes = _productAttributeService.GetProductAttributeMappingsByProductId(product.Id);
+            foreach (var attribute in productAttributes)
+            {
+                var controlId = string.Format("product_attribute_{0}", attribute.Id);
+                switch (attribute.AttributeControlType)
+                {
+                    case AttributeControlType.DropdownList:
+                    case AttributeControlType.RadioList:
+                    case AttributeControlType.ColorSquares:
+                    case AttributeControlType.ImageSquares:
+                        {
+                            var ctrlAttributes = form[controlId];
+                            if (!string.IsNullOrEmpty(ctrlAttributes))
+                            {
+                                var selectedAttributeId = int.Parse(ctrlAttributes);
+                                if (selectedAttributeId > 0)
+                                    attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
+                                        attribute, selectedAttributeId.ToString());
+                            }
+                        }
+                        break;
+                    case AttributeControlType.Checkboxes:
+                        {
+                            var ctrlAttributes = form[controlId].ToString();
+                            if (!string.IsNullOrEmpty(ctrlAttributes))
+                            {
+                                foreach (var item in ctrlAttributes.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    var selectedAttributeId = int.Parse(item);
+                                    if (selectedAttributeId > 0)
+                                        attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
+                                            attribute, selectedAttributeId.ToString());
+                                }
+                            }
+                        }
+                        break;
+                    case AttributeControlType.ReadonlyCheckboxes:
+                        {
+                            //load read-only (already server-side selected) values
+                            var attributeValues = _productAttributeService.GetProductAttributeValues(attribute.Id);
+                            foreach (var selectedAttributeId in attributeValues
+                                .Where(v => v.IsPreSelected)
+                                .Select(v => v.Id)
+                                .ToList())
+                            {
+                                attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
+                                    attribute, selectedAttributeId.ToString());
+                            }
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            //validate conditional attributes (if specified)
+            foreach (var attribute in productAttributes)
+            {
+                var conditionMet = _productAttributeParser.IsConditionMet(attribute, attributesXml);
+                if (conditionMet.HasValue && !conditionMet.Value)
+                {
+                    attributesXml = _productAttributeParser.RemoveProductAttribute(attributesXml, attribute);
+                }
+            }
+
+            #endregion
+
+            return attributesXml;
+        }
+
+        #endregion
+
+        #region Methods
 
         [AuthorizeAdmin]
         [Area(AreaNames.Admin)]
@@ -330,17 +415,19 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
         public IActionResult ProductStockFeed()
         {
-            var productFeed = new object();
+            var fileName = string.Format("feed_{0}_{1}.csv", DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"), CommonHelper.GenerateRandomDigitCode(4));
+            var result = string.Empty;
+
             try
             {
                 var pluginDescriptor = _pluginService.GetPluginDescriptorBySystemName<IPlugin>(RetargetingDefaults.SystemName);
-                if (pluginDescriptor != null)
-                {
-                    if (pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin)
-                        productFeed = plugin.GenerateProductStockFeed();
-                }
+                if (pluginDescriptor == null)
+                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
 
-                throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
+                if (!(pluginDescriptor.Instance<IPlugin>() is RetargetingPlugin plugin))
+                    throw new Exception(_localizationService.GetResource("Plugins.Widgets.Retargeting.ExceptionLoadPlugin"));
+
+                result = plugin.ExportProductsToCsv();
             }
             catch (Exception exc)
             {
@@ -348,7 +435,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 _logger.Error(exc.Message, exc);
             }
 
-            return Json(productFeed);
+            return File(Encoding.UTF8.GetBytes(result), MimeTypes.TextCsv, fileName);
         }
 
         public IActionResult GenerateDiscounts(string key, string value, int type, int count)
@@ -402,15 +489,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             return Json(discountCodes.ToArray());
         }
 
-        [NonAction]
-        private string GetProductImageUrl(Product product)
-        {
-            var pictures = _pictureService.GetPicturesByProductId(product.Id);
-            var defaultPicture = pictures.FirstOrDefault();
-
-            return _pictureService.GetPictureUrl(defaultPicture.Id);
-        }
-
         [HttpPost]
         public IActionResult GetProductInfo(int productId)
         {
@@ -437,51 +515,22 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 productInfo.Add("img", GetProductImageUrl(product));
 
                 plugin.GetProductPrice(product, out var price, out var priceWithDiscount);
-
-                if (price == 0)
-                    price = 1;
-
-                productInfo.Add("price", price.ToString("0.00", CultureInfo.InvariantCulture));
-                productInfo.Add("promo", priceWithDiscount.ToString("0.00", CultureInfo.InvariantCulture));
+                productInfo.Add("price", price);
+                productInfo.Add("promo", priceWithDiscount);
 
                 #endregion
 
                 #region Categories
 
-                var customerRoleIds = _customerService.GetCustomerRoleIds(_workContext.CurrentCustomer);
-                var categoriesCacheKey =
-                    _cacheKeyService.PrepareKeyForShortTermCache(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
-                        product,
-                        _workContext.WorkingLanguage,
-                        string.Join(",", customerRoleIds),
-                        _storeContext.CurrentStore);
-
-                var categories = _cacheManager.Get(categoriesCacheKey, () =>
-                {
-                    return _categoryService.GetProductCategoriesByProductId(product.Id)
-                        .Select(x => _categoryService.GetCategoryById(x.CategoryId))
-                        .ToList();
-                });
+                var categories = _categoryService.GetProductCategoriesByProductId(product.Id)
+                    .Select(x => _categoryService.GetCategoryById(x.CategoryId))
+                    .ToList();
 
                 if (categories.Count == 0)
-                {
                     if (product.ParentGroupedProductId > 0)
-                    {
-                        categoriesCacheKey =
-                            _cacheKeyService.PrepareKeyForShortTermCache(ModelCacheEventConsumer.PRODUCT_CATEGORIES_MODEL_KEY,
-                                product.ParentGroupedProductId,
-                                _workContext.WorkingLanguage,
-                                string.Join(",", customerRoleIds),
-                                _storeContext.CurrentStore);
-
-                        categories = _cacheManager.Get(categoriesCacheKey, () =>
-                        {
-                            return _categoryService.GetProductCategoriesByProductId(product.ParentGroupedProductId)
+                        categories = _categoryService.GetProductCategoriesByProductId(product.ParentGroupedProductId)
                                 .Select(x => _categoryService.GetCategoryById(x.CategoryId))
                                 .ToList();
-                        });
-                    }
-                }
 
                 //product must have at least one category
                 if (categories.Count == 0)
@@ -544,20 +593,9 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 #region Manufacturer
 
                 var manufacturer = new Dictionary<string, object>();
-
-                var manufacturersCacheKey =
-                    _cacheKeyService.PrepareKeyForShortTermCache (ModelCacheEventConsumer.PRODUCT_MANUFACTURERS_MODEL_KEY,
-                        productId,
-                        _workContext.WorkingLanguage,
-                        string.Join(",", customerRoleIds),
-                        _storeContext.CurrentStore);
-
-                var manufacturers = _cacheManager.Get(manufacturersCacheKey, () =>
-                {
-                    return _manufacturerService.GetProductManufacturersByProductId(productId)
+                var manufacturers = _manufacturerService.GetProductManufacturersByProductId(productId)
                         .Select(x => _manufacturerService.GetManufacturerById(x.ManufacturerId))
                         .ToList();
-                });
 
                 if (manufacturers.Count > 0)
                 {
@@ -707,81 +745,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             });
         }
 
-        private string ParseProductAttributes(Product product, IFormCollection form)
-        {
-            var attributesXml = "";
-
-            #region Product attributes
-
-            var productAttributes = _productAttributeService.GetProductAttributeMappingsByProductId(product.Id);
-            foreach (var attribute in productAttributes)
-            {
-                var controlId = string.Format("product_attribute_{0}", attribute.Id);
-                switch (attribute.AttributeControlType)
-                {
-                    case AttributeControlType.DropdownList:
-                    case AttributeControlType.RadioList:
-                    case AttributeControlType.ColorSquares:
-                    case AttributeControlType.ImageSquares:
-                        {
-                            var ctrlAttributes = form[controlId];
-                            if (!string.IsNullOrEmpty(ctrlAttributes))
-                            {
-                                var selectedAttributeId = int.Parse(ctrlAttributes);
-                                if (selectedAttributeId > 0)
-                                    attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
-                                        attribute, selectedAttributeId.ToString());
-                            }
-                        }
-                        break;
-                    case AttributeControlType.Checkboxes:
-                        {
-                            var ctrlAttributes = form[controlId].ToString();
-                            if (!string.IsNullOrEmpty(ctrlAttributes))
-                            {
-                                foreach (var item in ctrlAttributes.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-                                {
-                                    var selectedAttributeId = int.Parse(item);
-                                    if (selectedAttributeId > 0)
-                                        attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
-                                            attribute, selectedAttributeId.ToString());
-                                }
-                            }
-                        }
-                        break;
-                    case AttributeControlType.ReadonlyCheckboxes:
-                        {
-                            //load read-only (already server-side selected) values
-                            var attributeValues = _productAttributeService.GetProductAttributeValues(attribute.Id);
-                            foreach (var selectedAttributeId in attributeValues
-                                .Where(v => v.IsPreSelected)
-                                .Select(v => v.Id)
-                                .ToList())
-                            {
-                                attributesXml = _productAttributeParser.AddProductAttribute(attributesXml,
-                                    attribute, selectedAttributeId.ToString());
-                            }
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
-            //validate conditional attributes (if specified)
-            foreach (var attribute in productAttributes)
-            {
-                var conditionMet = _productAttributeParser.IsConditionMet(attribute, attributesXml);
-                if (conditionMet.HasValue && !conditionMet.Value)
-                {
-                    attributesXml = _productAttributeParser.RemoveProductAttribute(attributesXml, attribute);
-                }
-            }
-
-            #endregion
-
-            return attributesXml;
-        }
-
         /// <summary>
         /// Subscribe to Retargeting news
         /// </summary>
@@ -861,5 +824,7 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
                 fromAddress: email, fromName: RetargetingDefaults.UserAgent,
                 toAddress: RetargetingDefaults.SubscriptionEmail, toName: null);
         }
+
+        #endregion
     }
 }
