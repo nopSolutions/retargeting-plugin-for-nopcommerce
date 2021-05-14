@@ -44,7 +44,6 @@ namespace Nop.Plugin.Widgets.Retargeting
         private readonly ISettingService _settingService;
         private readonly IProductService _productService;
         private readonly IDiscountService _discountService;
-        private readonly ICurrencyService _currencyService;
         private readonly IPermissionService _permissionService;
         private readonly IShoppingCartService _shoppingCartService;
         private readonly IProductAttributeService _productAttributeService;
@@ -53,8 +52,6 @@ namespace Nop.Plugin.Widgets.Retargeting
         private readonly IPictureService _pictureService;
         private readonly ICategoryService _categoryService;
         private readonly IManufacturerService _manufacturerService;
-        private readonly IAclService _aclService;
-        private readonly IStoreMappingService _storeMappingService;
 
         private readonly ILocalizationService _localizationService;
         private readonly ILogger _logger;
@@ -79,7 +76,6 @@ namespace Nop.Plugin.Widgets.Retargeting
             IOrderService orderService,
             ISettingService settingService,
             IProductService productService,
-            ICurrencyService currencyService,
             IDiscountService discountService,
             IPermissionService permissionService,
             IShoppingCartService shoppingCartService,
@@ -89,8 +85,6 @@ namespace Nop.Plugin.Widgets.Retargeting
             IPictureService pictureService,
             ICategoryService categoryService,
             IManufacturerService manufacturerService,
-            IAclService aclService,
-            IStoreMappingService storeMappingService,
 
             ILocalizationService localizationService,
             ILogger logger,
@@ -98,6 +92,7 @@ namespace Nop.Plugin.Widgets.Retargeting
             IWorkContext workContext,
             IStoreContext storeContext,
             IProductAttributeParser productAttributeParser,
+            ICacheManager cacheManager,
             IUrlHelperFactory urlHelperFactory,
             IActionContextAccessor actionContextAccessor,
 
@@ -109,7 +104,6 @@ namespace Nop.Plugin.Widgets.Retargeting
             _orderService = orderService;
             _settingService = settingService;
             _productService = productService;
-            _currencyService = currencyService;
             _discountService = discountService;
             _permissionService = permissionService;
             _shoppingCartService = shoppingCartService;
@@ -119,8 +113,6 @@ namespace Nop.Plugin.Widgets.Retargeting
             _pictureService = pictureService;
             _categoryService = categoryService;
             _manufacturerService = manufacturerService;
-            _aclService = aclService;
-            _storeMappingService = storeMappingService;
 
             _localizationService = localizationService;
             _logger = logger;
@@ -128,7 +120,8 @@ namespace Nop.Plugin.Widgets.Retargeting
             _workContext = workContext;
             _storeContext = storeContext;
             _productAttributeParser = productAttributeParser;
-                        _urlHelperFactory = urlHelperFactory;
+            _cacheManager = cacheManager;
+            _urlHelperFactory = urlHelperFactory;
             _actionContextAccessor = actionContextAccessor;
 
             _shoppingCartSettings = shoppingCartSettings;

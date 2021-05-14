@@ -1,19 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nop.Core;
-using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
-using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Discounts;
 using Nop.Core.Domain.Messages;
 using Nop.Core.Domain.Orders;
-using Nop.Plugin.Widgets.Retargeting.Infrastructure.Cache;
 using Nop.Plugin.Widgets.Retargeting.Models;
 using Nop.Services.Catalog;
 using Nop.Services.Configuration;
@@ -39,7 +35,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 	    #region Fields
 
         private readonly EmailAccountSettings _emailAccountSettings;
-        private readonly ICacheManager _cacheManager;
         private readonly ICategoryService _categoryService;
         private readonly IDiscountService _discountService;
         private readonly IEmailAccountService _emailAccountService;
@@ -64,7 +59,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
 
         public WidgetsRetargetingController(
             EmailAccountSettings emailAccountSettings,
-            ICacheManager cacheManager,
             ICategoryService categoryService,
             IDiscountService discountService,
             IEmailAccountService emailAccountService,
@@ -85,7 +79,6 @@ namespace Nop.Plugin.Widgets.Retargeting.Controllers
             )
         {
             _emailAccountSettings = emailAccountSettings;
-            _cacheManager = cacheManager;
             _categoryService = categoryService;
             _discountService = discountService;
             _emailAccountService = emailAccountService;
